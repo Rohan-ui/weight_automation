@@ -95,6 +95,7 @@ document.getElementById('closeDialog').addEventListener('click', () => {
 
 // Update the print function to use ZPL with all fields
 function printRecord(index) {
+    console.log('printRecord called with index:', index);  // Test log
     const record = records[index];
     const printData = {
         date: record.date || record.timestamp,
@@ -110,6 +111,7 @@ function printRecord(index) {
         grossWeight: record.grossWeight || '',
         operator: record.operator || ''
     };
+    console.log('Sending print data:', printData);  // Test log
 
     // Send print request to main process
     ipcRenderer.send('print-label', printData);

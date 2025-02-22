@@ -5,6 +5,7 @@ const path = require('path');
 const ZPLPrinter = require('./zpl-printer');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const exec = require('child_process').exec;
 
 // Configure logging
 autoUpdater.logger = log;
@@ -43,11 +44,22 @@ function createWindow() {
         });
     });
 
-    // Initialize ZPL printer after window creation
-    zplPrinter = new ZPLPrinter({
-        type: 'serial',  // Change to 'network' if using network printer
-        serialPort: 'COM4',  // Update this to match your Zebra printer's port
-        baudRate: 9600
+    // List available printers
+    exec('wmic printer get name,portname', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error getting printer list:', error);
+            return;
+        }
+        console.log('Available printers and ports:');
+        console.log(stdout);
+
+        // Initialize ZPL printer after getting printer list
+        zplPrinter = new ZPLPrinter({
+            type: 'usb',
+            printerName: 'ZDesigner', // We'll update this based on what we find
+        });
+        
+        console.log('ZPL Printer initialized with config:', zplPrinter.config);
     });
 }
 
@@ -298,29 +310,32 @@ ipcMain.on('restart-serial', async () => {
 // Add new IPC handler for printing
 ipcMain.on('print-label', async (event, data) => {
     try {
-        // Calculate gross weight if not provided
-        if (!data.grossWeight && data.netWeight && data.coreWeight) {
-            data.grossWeight = (parseFloat(data.netWeight) + parseFloat(data.coreWeight)).toFixed(2);
-        }
-
-        // Format weights to include units
-        if (data.netWeight) data.netWeight += ' KG';
-        if (data.coreWeight) data.coreWeight += ' KG';
-        if (data.grossWeight) data.grossWeight += ' KG';
+        // Log to both console and file
+        log.info('Received print request with data:', data);
+        console.log('Received print request with data:', data);
         
-        // Add units to measurements if provided
-        if (data.width) data.width += ' mm';
-        if (data.length) data.length += ' m';
-        if (data.filmMic) data.filmMic += ' μ';
-
-        await zplPrinter.print(data);
+        await zplPrinter.print(data);  // Pass the actual data
+        
+        log.info('Print completed successfully');
+        console.log('Print completed successfully');
+        
         event.reply('print-status', { success: true });
     } catch (err) {
+        log.error('Printing error:', err);
         console.error('Printing error:', err);
-        event.reply('print-status', { 
-            success: false, 
-            error: err.message 
-        });
+        
+        // Send detailed error to renderer
+        const errorMessage = {
+            success: false,
+            error: err.message,
+            details: {
+                code: err.code,
+                syscall: err.syscall,
+                path: err.path
+            }
+        };
+        console.error('Error details:', errorMessage);
+        event.reply('print-status', errorMessage);
     }
 });
 

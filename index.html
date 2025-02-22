@@ -203,73 +203,101 @@
     overflow: hidden;
 }
 @media print {
-        @page {
-            size: A4;
-            margin: 0;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            visibility: hidden;
-        }
-
-        .print-container {
-            visibility: visible;
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100vw;
-            height: 100vh;
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 0;
-        }
-
-        .print-table {
-            width: 100%;
-            height: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            border: 2px solid black;
-        }
-
-        .print-table tr {
-            height: calc(100% / 12);
-        }
-
-        .print-table .label {
-            width: 50%;
-            border-right: 2px solid black;
-            padding: 10px;
-            padding-left: 20px;
-            font-weight: bold;
-            font-size: 20px;
-            line-height: 1.2;
-        }
-
-        .print-table .value {
-            width: 50%;
-            padding: 10px;
-            padding-left: 100px;
-            font-weight: bold;
-            font-size: 20px;
-            line-height: 1.2;
-            text-align: left;
-        }
-
-        /* Add bottom border to all cells except last row */
-        .print-table tr:not(:last-child) td {
-            border-bottom: 2px solid black;
-        }
-
-        /* Hide everything else when printing */
-        .controls, .form-section, .table-section {
-            display: none !important;
-        }
+    @page {
+        size: 100mm 100mm; /* 3.94 inches = 100mm */
+        margin: 2mm;
     }
+
+    body {
+        margin: 0;
+        padding: 0;
+        visibility: hidden;
+    }
+
+    .print-container {
+        visibility: visible !important;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 96mm; /* Accounting for margins */
+        height: 96mm;
+    }
+
+    .print-table {
+        width: 100%;
+        height: 100%;
+        border-collapse: collapse;
+        border: 3px solid black;
+    }
+
+    .print-table td {
+        padding: 2mm;
+        line-height: 1;
+    }
+
+    .print-table .label {
+        width: 40%;
+        border-right: 3px solid black;
+        font-size: 12pt;
+        font-weight: 900;
+        font-family: Arial, sans-serif;
+        text-transform: uppercase;
+    }
+
+    .print-table .value {
+        width: 60%;
+        font-size: 14pt;
+        font-weight: 900;
+        font-family: Arial, sans-serif;
+    }
+
+    .print-table tr:not(:last-child) td {
+        border-bottom: 3px solid black;
+    }
+
+    /* Hide everything else when printing */
+    .controls, .form-section, .table-section {
+        display: none !important;
+    }
+}
+
+/* Regular display preview styling */
+.print-container {
+    width: 100mm;
+    height: 100mm;
+    margin: 20px auto;
+    display: none;
+}
+
+.print-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 3px solid black;
+}
+
+.print-table td {
+    padding: 2mm;
+}
+
+.print-table .label {
+    width: 40%;
+    border-right: 3px solid black;
+    font-size: 12pt;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+    text-transform: uppercase;
+}
+
+.print-table .value {
+    width: 60%;
+    font-size: 14pt;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+}
+
+.print-table tr:not(:last-child) td {
+    border-bottom: 3px solid black;
+}
 
     /* Regular display styling */
     .print-table {
@@ -595,11 +623,11 @@ function generatePrintLayout(record) {
     const cells = printContainer.querySelectorAll('.value');
     
     const values = [
-        record.date.split('T')[0], // Format date to remove time
+        record.date.split('T')[0],
         record.rollNo,
         record.width + ' mm',
-        record.filmMic + ' microns',
-        record.coating + ' microns',
+        record.filmMic + ' μ',
+        record.coating,
         record.colour,
         record.style,
         record.length + ' m',
@@ -615,8 +643,8 @@ function generatePrintLayout(record) {
     });
 
     printContainer.style.display = 'block';
+    return printContainer;
 }
-
 function updateDataTable() {
     const dataTableBody = document.getElementById('data-table-body');
     dataTableBody.innerHTML = ''; // Clear existing content
@@ -654,9 +682,22 @@ function deleteRecord(index) {
 }
 function printRecord(index) {
     const record = savedRecords[index];
-    generatePrintLayout(record);
+    const printContainer = generatePrintLayout(record);
+    
+    // Store current body overflow style
+    const originalOverflow = document.body.style.overflow;
+    
+    // Hide scrollbars during printing
+    document.body.style.overflow = 'hidden';
+    
+    // Print the document
     window.print();
-    document.querySelector('.print-container').style.display = 'none';
+    
+    // Restore original overflow and hide print container
+    setTimeout(() => {
+        document.body.style.overflow = originalOverflow;
+        printContainer.style.display = 'none';
+    }, 500);
 }
 
         coreWeightInput.addEventListener('input', calculateGrossWeight);
@@ -704,9 +745,23 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
             // Send to IPC Renderer if applicable
             ipcRenderer.send('save-record', formData);
 
-            // Automatically print the saved record
-            generatePrintLayout(formData);
-            window.print();
+            // Automatically print the saved record using ZPL printer
+            const printData = {
+                date: formData.date,
+                rollNo: formData.rollNo,
+                width: formData.width,
+                filmMic: formData.filmMic,
+                coating: formData.coating,
+                colour: formData.colour,
+                style: formData.style,
+                length: formData.length,
+                netWeight: formData.netWeight,
+                coreWeight: formData.coreWeight,
+                grossWeight: formData.grossWeight,
+                operator: formData.operator
+            };
+            console.log('Sending print data after save:', printData);
+            ipcRenderer.send('print-label', printData);
         } else {
             throw new Error(result.message || "Failed to save record");
         }
@@ -730,6 +785,18 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
             statusDiv.textContent = data.connected ? 
                 `Connected to ${data.port} (${machineSelect.value})` : 
                 'Disconnected';
+        });
+
+        ipcRenderer.on('print-status', (event, status) => {
+            if (status.success) {
+                console.log('Print completed successfully');
+            } else {
+                console.error('Print failed:', status.error);
+                if (status.details) {
+                    console.error('Error details:', status.details);
+                }
+                alert(`Print failed: ${status.error}\nMake sure the printer is connected and powered on.`);
+            }
         });
 
         document.getElementById('date').valueAsDate = new Date();

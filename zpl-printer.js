@@ -1,93 +1,117 @@
 const net = require('net');
 const { SerialPort } = require('serialport');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
 
 class ZPLPrinter {
     constructor(config = {}) {
         this.config = {
-            type: config.type || 'network', // 'network' or 'serial'
+            type: config.type || 'usb', // 'usb', 'network', or 'serial'
+            printerName: config.printerName || 'ZDesigner ZD230-203dpi ZPL', // Name of your Zebra printer
+            printerPort: 'USB001', // Hardcoded printer port
             address: config.address || '192.168.1.100',
             port: config.port || 9100,
             serialPort: config.serialPort || 'COM1',
-            baudRate: config.baudRate || 9600
+            baudRate: config.baudRate || 9600,
+            deviceId: config.deviceId || '', // USB device ID
+            driverName: config.driverName || 'usbprint.inf' // Driver name
         };
     }
 
     generateZPL(data) {
+        console.log('generateZPL called with data:', data);
+        
         // Start ZPL format
         let zpl = '^XA';
-    
-        // Set print darkness
-        zpl += '^MD30';
-    
-        // Label setup for 4x4 inches (812 x 812 dots)
-        zpl += '^PW812';   // Print width
-        zpl += '^LL812';   // Label length
-        zpl += '^LH0,10'; // Adjusted home position
-        zpl += '^LT-400';
-        zpl += '^CI28';    // Unicode encoding
-    
-        // Define table data
+        zpl += '^PW752';  // Print width
+        zpl += '^LL752';  // Label length
+        zpl += '^LH0,0';  // Home position
+        zpl += '^CI28';   // Unicode encoding
+
+        // Draw outer box and vertical divider
+        zpl += '^FO0,0^GB752,752,2^FS';
+        zpl += '^FO376,0^GB2,752,2^FS';
+
+        // Draw horizontal lines
+        for (let i = 1; i <= 11; i++) {
+            const y = i * 62;
+            zpl += `^FO0,${y}^GB752,2,2^FS`;
+        }
+
+        // Define fields and their positions
         const fields = [
             { label: 'Date', value: new Date(data.date || data.timestamp).toLocaleDateString() },
             { label: 'Roll No.', value: data.rollNo || '' },
-            { label: 'Width', value: (data.width || '') + (data.width ? ' mm' : '') },
-            { label: 'Film Mic', value: (data.filmMic || '') + (data.filmMic ? ' microns' : '') },
-            { label: 'Coating', value: (data.coating || '') + (data.coating ? ' microns' : '') },
+            { label: 'Width', value: data.width ? `${data.width} mm` : '' },
+            { label: 'Film Mic', value: data.filmMic ? `${data.filmMic} microns` : '' },
+            { label: 'Coating', value: data.coating ? `${data.coating} microns` : '' },
             { label: 'Colour', value: data.colour || '' },
             { label: 'Style', value: data.style || '' },
-            { label: 'Length', value: (data.length || '') + (data.length ? ' m' : '') },
-            { label: 'Net Weight', value: (data.netWeight || '') + (data.netWeight ? ' KG' : '') },
-            { label: 'Core Weight', value: (data.coreWeight || '') + (data.coreWeight ? ' KG' : '') },
-            { label: 'Gross Weight', value: (data.grossWeight || '') + (data.grossWeight ? ' KG' : '') },
+            { label: 'Length', value: data.length ? `${data.length} m` : '' },
+            { label: 'Net Weight', value: data.netWeight ? `${data.netWeight} kg` : '' },
+            { label: 'Core Weight', value: data.coreWeight ? `${data.coreWeight} kg` : '' },
+            { label: 'Gross Weight', value: data.grossWeight ? `${data.grossWeight} kg` : '' },
             { label: 'Operator', value: data.operator || '' }
         ];
-    
-// Adjusted values
-const startX = 10;      // Left margin remains same
-const startY = -150;    // Move label UP by 2 inches (1 inch = ~75 dots)
-const rowHeight = 70;   // Increased row height for better spacing
-const tableWidth = 900; // Increased width for larger text
-const fontSize = 50;    // Increased font size for better readability
 
-// Draw outer box
-zpl += `^FO${startX},${startY}^GB${tableWidth},${fields.length * rowHeight},3^FS`;
+        console.log('Fields to print:', fields);
 
-// Draw vertical divider (centered)
-const middleX = startX + (tableWidth / 2);
-zpl += `^FO${middleX},${startY}^GB3,${fields.length * rowHeight},3^FS`;
+        // Add field labels and values
+        fields.forEach((field, index) => {
+            const y = (index * 62) + 10;
+            // Label (left column)
+            zpl += `^FO20,${y}^A0N,38,38^FD${field.label}^FS`;
+            // Value (right column)
+            zpl += `^FO400,${y}^A0N,38,38^FD${field.value}^FS`;
+        });
 
-// Add rows and text
-fields.forEach((field, index) => {
-    const yPos = startY + (index * rowHeight);
-
-    // Draw horizontal line (except for first row)
-    if (index > 0) {
-        zpl += `^FO${startX},${yPos}^GB${tableWidth},3,3^FS`;
-    }
-
-    // Label column
-    zpl += `^FO${startX },${yPos }^A0N,${fontSize},${fontSize}^FD${field.label}^FS`;
-
-    // Value column
-    zpl += `^FO${middleX },${yPos}^A0N,${fontSize},${fontSize}^FD${field.value}^FS`;
-});
-    
-        // End ZPL format
-        zpl += '^XZ';
-    
+        // End ZPL format with Form Feed command
+        zpl += '^XZ\n^FF';
+        
+        console.log('Final ZPL code:', zpl);
         return zpl;
     }
     
 
     async print(data) {
+        console.log('print method called with data:', data);
         const zplData = this.generateZPL(data);
+        console.log('Generated ZPL:', zplData);
 
-        if (this.config.type === 'network') {
+        if (this.config.type === 'usb') {
+            console.log('Using USB printer');
+            return this.printUSB(zplData);
+        } else if (this.config.type === 'network') {
+            console.log('Using network printer');
             return this.printNetwork(zplData);
         } else {
+            console.log('Using serial printer');
             return this.printSerial(zplData);
         }
     }
+
+
+    printUSB(zplData) {
+        return new Promise((resolve, reject) => {
+            const printerShareName = "\\\\DESKTOP-EDMAHFF\\ZebraPrinter";
+    
+            // Create a temporary file in the system temp directory
+            const tempFile = "C:\\port\\temp_label.zpl";
+            
+            // Use the COPY command to send the file directly to the printer
+            exec(`COPY /B "${tempFile}" "${printerShareName}"`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error("Printing failed:", error);
+                    reject(error);
+                } else {
+                    console.log("Print job sent successfully:", stdout);
+                    resolve(stdout);
+                }
+            });
+        });
+    }
+    
 
     printNetwork(zplData) {
         return new Promise((resolve, reject) => {
@@ -113,23 +137,42 @@ fields.forEach((field, index) => {
     printSerial(zplData) {
         return new Promise((resolve, reject) => {
             const port = new SerialPort({
-                path: this.config.serialPort,
-                baudRate: this.config.baudRate
+                path: "COM4", // Use your correct COM port
+                baudRate: 9600,
+                dataBits: 8,
+                parity: 'none',
+                stopBits: 1,
+                flowControl: false,
+                autoOpen: false
             });
-
-            port.write(zplData, (err) => {
+    
+            port.open((err) => {
                 if (err) {
+                    console.error("Error opening serial port:", err);
                     reject(err);
-                } else {
-                    port.close(() => resolve());
+                    return;
                 }
+    
+                port.write(zplData, (err) => {
+                    if (err) {
+                        console.error("Error writing to serial port:", err);
+                        reject(err);
+                    } else {
+                        console.log("Print job sent successfully!");
+                        resolve();
+                    }
+    
+                    port.close();
+                });
             });
-
+    
             port.on('error', (err) => {
+                console.error("Serial port error:", err);
                 reject(err);
             });
         });
     }
+    
 }
 
 module.exports = ZPLPrinter;

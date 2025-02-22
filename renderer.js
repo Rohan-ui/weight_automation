@@ -16,14 +16,33 @@ const defaultWeight = "0.00"; // Default weight if ipcRenderer is not available
 
 if (ipcRenderer) {
   ipcRenderer.on('update-weight', (event, weight) => {
-    document.getElementById('netWeight').value = weight || defaultWeight;  
-    document.getElementById('coreWeight').value = weight || defaultWeight; 
+    document.getElementById('grossWeight').value = weight || defaultWeight;
+    calculateNetWeight(); // Recalculate net weight when gross weight updates
   });
 } else {
   console.warn("ipcRenderer is not available, setting default weight.");
-  document.getElementById('netWeight').value = defaultWeight;
-  document.getElementById('coreWeight').value = defaultWeight;
+  document.getElementById('grossWeight').value = defaultWeight;
+  calculateNetWeight();
 }
+
+// Function to calculate net weight
+function calculateNetWeight() {
+  const grossWeightInput = document.getElementById('grossWeight');
+  const coreWeightInput = document.getElementById('coreWeight');
+  const netWeightInput = document.getElementById('netWeight');
+
+  const grossWeight = parseFloat(grossWeightInput.value) || 0;
+  const coreWeight = parseFloat(coreWeightInput.value) || 0;
+
+  // Calculate net weight (gross - core)
+  const netWeight = grossWeight - coreWeight;
+  
+  // Display net weight with 2 decimal places
+  netWeightInput.value = netWeight.toFixed(2);
+}
+
+// Update weight when core weight changes
+document.getElementById('coreWeight').addEventListener('input', calculateNetWeight);
 
 // Handle form submission
 document.getElementById('packagingForm').addEventListener('submit', (e) => {

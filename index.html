@@ -30,25 +30,72 @@
             padding: 20px;
             margin-top: 20px;
         }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 15px;
+        .form-container {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        /* Form rows container */
+        .form-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Default: single column for mobile */
+        .form-row {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: 1fr;
+        }
+
+        /* For larger screens - two rows with multiple columns */
+        @media (min-width: 768px) {
+            .form-row {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
+            gap: 5px;
         }
-        select, input, button {
-            padding: 8px;
+
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
         }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        .form-group input[readonly] {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+
         .button-group {
             margin-top: 20px;
             display: flex;
-            gap: 10px;
+            justify-content: flex-end;
         }
         #save-btn, #print-btn {
             padding: 10px 20px;
@@ -371,68 +418,76 @@
     <div class="form-section">
         <h2>Production Data Entry</h2>
         <div class="form-container">
-            <h2>Roll Details</h2>
-            <div class="form-group">
-                <label for="rollNo">Roll No:</label>
-                <input type="text" id="rollNo" name="rollNo" required>
-            </div>
-            <div class="form-group">
-                <label for="width">Width (mm):</label>
-                <input type="number" id="width" name="width" step="0.1">
-            </div>
-            <div class="form-group">
-                <label for="filmMic">Film Mic (μ):</label>
-                <input type="number" id="filmMic" name="filmMic" step="0.1">
-            </div>
-            <div class="form-group">
-                <label for="coating">Coating:</label>
-                <input type="text" id="coating" name="coating">
-            </div>
-            <div class="form-group">
-                <label for="colour">Colour:</label>
-                <select id="colour" name="colour">
-                    <option value="">Select Colour</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="style">Style:</label>
-                <input type="text" id="style" name="style">
-            </div>
-            <div class="form-group">
-                <label for="length">Length (m):</label>
-                <input type="number" id="length" name="length" step="0.1">
-            </div>
-            <div class="form-group">
-                <label for="netWeight">Net Weight (KG):</label>
-                <input type="number" id="netWeight" name="netWeight" step="0.01" readonly>
-            </div>
-            <div class="form-group">
-                <label for="coreWeight">Core Weight (KG):</label>
-                <input type="number" id="coreWeight" name="coreWeight" step="0.01">
-            </div>
-            <div class="form-group">
-                <label for="grossWeight">Gross Weight (KG):</label>
-                <input type="number" id="grossWeight" name="grossWeight" step="0.01" readonly>
-            </div>
-            <div class="form-group">
-                <label for="operator">Operator:</label>
-                <input type="text" id="operator" name="operator" required>
-            </div>
-            <div class="form-group">
-                <label for="machine">Machine:</label>
-                <select id="machine" name="machine">
-                    <option value="">Select Machine</option>
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="date">Date:</label>
-                <input type="date" id="date" name="date" required>
+            <div class="form-rows">
+                <!-- First Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rollNo">Roll No:</label>
+                        <input type="text" id="rollNo" name="rollNo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="width">Width (mm):</label>
+                        <input type="number" id="width" name="width" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="filmMic">Film Mic (μ):</label>
+                        <input type="number" id="filmMic" name="filmMic" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="coating">Coating:</label>
+                        <input type="text" id="coating" name="coating">
+                    </div>
+                    <div class="form-group">
+                        <label for="colour">Colour:</label>
+                        <select id="colour" name="colour">
+                            <option value="">Select Colour</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Second Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="style">Style:</label>
+                        <input type="text" id="style" name="style">
+                    </div>
+                    <div class="form-group">
+                        <label for="length">Length (m):</label>
+                        <input type="number" id="length" name="length" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="netWeight">Net Weight (KG):</label>
+                        <input type="number" id="netWeight" name="netWeight" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="coreWeight">Core Weight (KG):</label>
+                        <input type="number" id="coreWeight" name="coreWeight" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="grossWeight">Gross Weight (KG):</label>
+                        <input type="number" id="grossWeight" name="grossWeight" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="operator">Operator:</label>
+                        <input type="text" id="operator" name="operator" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="machine">Machine:</label>
+                        <select id="machine" name="machine">
+                            <option value="">Select Machine</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="button-group">
-                <button id="save-print-btn">Save & Print</button>
+                <button id="save-print-btn" class="save-btn">Save & Print</button>
             </div>
         </div>
     </div>
@@ -603,70 +658,9 @@ function printRecord(index) {
     window.print();
     document.querySelector('.print-container').style.display = 'none';
 }
-// document.getElementById('print-btn').addEventListener('click', () => {
-//     if (savedRecords.length === 0) {
-//         alert("No records available to print.");
-//         return;
-//     }
-
-//     // Print the most recent record
-//     const record = savedRecords[savedRecords.length - 1];
-//     generatePrintLayout(record);
-//     window.print();
-// });
 
         coreWeightInput.addEventListener('input', calculateGrossWeight);
         
-        // document.getElementById('save-btn').addEventListener('click', async () => {
-        //     if (!machineSelect.value) {
-        //         alert('Please select a machine first');
-        //         return;
-        //     }
-            
-        //     const formData = {
-        //         machine: machineSelect.value,
-        //         date: new Date(document.getElementById('date').value + 'T00:00:00').toISOString(),
-        //         rollNo: document.getElementById('rollNo').value,
-        //         width: parseFloat(document.getElementById('width').value), // Convert to number
-        //         filmMic: parseFloat(document.getElementById('filmMic').value), // Convert to number
-        //         coating: document.getElementById('coating').value,
-        //         colour: document.getElementById('colour').value,
-        //         style: document.getElementById('style').value,
-        //         length: parseFloat(document.getElementById('length').value),
-        //         netWeight: parseFloat(netWeightInput.value),
-        //         coreWeight: parseFloat(coreWeightInput.value),
-        //         grossWeight: parseFloat(grossWeightInput.value),
-        //         operator: document.getElementById('operator').value
-        //     };
-        //     console.log("saved", formData)
-        //     savedRecords.push(formData);
-        //     updateDataTable();
-            
-        //             try {
-        //         const response = await fetch('https://deverp.shantipatra.com/api/production-rolls', {
-        //             method: 'POST',
-        //             headers: {
-        //                 'Content-Type': 'application/json'
-        //             },
-        //             body: JSON.stringify(formData)
-        //         });
-
-        //         const result = await response.json();
-
-        //         if (response.ok) {
-        //             console.log("Record saved:", result);
-        //             savedRecords.push(formData); // Store locally
-        //             updateDataTable(); // Refresh table
-        //             alert("Record saved successfully!");
-        //         } else {
-        //             throw new Error(result.message || "Failed to save record");
-        //         }
-        //     } catch (error) {
-        //         console.error("Error saving record:", error);
-        //         alert("Error saving record. Please try again.");
-        //     }
-        //     ipcRenderer.send('save-record', formData);
-        // });
 
 document.getElementById('save-print-btn').addEventListener('click', async () => {
     if (!machineSelect.value) {
@@ -691,7 +685,7 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
     };
 
     try {
-        const response = await fetch('https://deverp.shantipatra.com/api/production-rolls', {
+        const response = await fetch('https://deverp.shantipatra.com/api/v1/production-rolls', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

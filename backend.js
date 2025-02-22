@@ -4,7 +4,7 @@ app.use(express.json());
 
 let records = []; // Temporary storage
 
-app.post('https://deverp.shantipatra.com/api/production-rolls', (req, res) => {
+app.post('https://deverp.shantipatra.com/api/v1/production-rolls', (req, res) => {
     const record = req.body;
     records.push(record);
     res.json({ message: "Record saved successfully!", data: record });

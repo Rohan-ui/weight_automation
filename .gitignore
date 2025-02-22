@@ -79,6 +79,15 @@ web_modules/
 .env.production.local
 .env.local
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Token files
+*.token
+token.txt
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

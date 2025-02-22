@@ -233,6 +233,15 @@ app.whenReady().then(async () => {
     try {
         createWindow();
         await initSerialPort();
+        
+        // Check for updates immediately when app starts
+        autoUpdater.checkForUpdatesAndNotify();
+        
+        // Check for updates every 30 minutes
+        setInterval(() => {
+            autoUpdater.checkForUpdatesAndNotify();
+        }, 30 * 60 * 1000);
+
         // Check for updates
         autoUpdater.checkForUpdatesAndNotify();
     } catch (err) {
@@ -318,31 +327,31 @@ ipcMain.on('print-label', async (event, data) => {
 // Auto-updater events
 autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
+    notifyRenderer('update-status', 'Checking for update...');
 });
 
 autoUpdater.on('update-available', (info) => {
-    log.info('Update available.');
-    // You can notify the user here if you want
-    mainWindow.webContents.send('update-available');
+    log.info('Update available:', info);
+    notifyRenderer('update-status', 'Update available. Downloading...');
 });
 
 autoUpdater.on('update-not-available', (info) => {
-    log.info('Update not available.');
+    log.info('Update not available:', info);
+    notifyRenderer('update-status', 'You are running the latest version.');
 });
 
 autoUpdater.on('error', (err) => {
-    log.error('Error in auto-updater. ' + err);
+    log.error('Error in auto-updater:', err);
+    notifyRenderer('update-status', 'Error checking for updates.');
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = `Download speed: ${progressObj.bytesPerSecond}`;
-    log_message = `${log_message} - Downloaded ${progressObj.percent}%`;
-    log_message = `${log_message} (${progressObj.transferred}/${progressObj.total})`;
-    log.info(log_message);
-    mainWindow.webContents.send('download-progress', progressObj.percent);
+    let message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
+    log.info(message);
+    notifyRenderer('update-status', message);
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-    log.info('Update downloaded');
-    mainWindow.webContents.send('update-downloaded');
+    log.info('Update downloaded:', info);
+    notifyRenderer('update-status', 'Update downloaded. Will install on restart.');
 });

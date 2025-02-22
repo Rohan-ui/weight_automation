@@ -124,6 +124,24 @@ ipcRenderer.on('print-status', (event, response) => {
     }
 });
 
+// Handle auto-update status messages
+if (ipcRenderer) {
+  ipcRenderer.on('update-status', (event, message) => {
+    const updateStatusDiv = document.getElementById('update-status');
+    updateStatusDiv.style.display = 'block';
+    updateStatusDiv.textContent = message;
+    
+    // If update is downloaded, show restart button
+    if (message.includes('Update downloaded')) {
+      const restartButton = document.createElement('button');
+      restartButton.textContent = 'Restart to Install Update';
+      restartButton.style.marginLeft = '10px';
+      restartButton.onclick = () => ipcRenderer.send('restart-app');
+      updateStatusDiv.appendChild(restartButton);
+    }
+  });
+}
+
 // Update notification
 if (ipcRenderer) {
   ipcRenderer.on('update-available', () => {

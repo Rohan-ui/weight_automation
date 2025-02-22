@@ -348,6 +348,7 @@
 </head>
 <body>
     <div id="status" class="disconnected">Disconnected</div>
+    <div id="update-status" style="padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: none;"></div>
     
     <div class="controls">
         <!-- <select id="machine-select">
@@ -490,6 +491,7 @@
     <script>
         const { ipcRenderer } = require('electron');
         const statusDiv = document.getElementById('status');
+        const updateStatusDiv = document.getElementById('update-status');
         const weightDisplay = document.getElementById('weight-display');
         const portSelect = document.getElementById('port-select');
         const machineSelect = document.getElementById('machine');

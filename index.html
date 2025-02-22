@@ -369,70 +369,70 @@
 
     <div class="form-section">
         <h2>Production Data Entry</h2>
-        <div class="form-grid">
-            <div class="form-grid">
-                <select id="machine-select">
+        <div class="form-container">
+            <h2>Roll Details</h2>
+            <div class="form-group">
+                <label for="rollNo">Roll No:</label>
+                <input type="text" id="rollNo" name="rollNo" required>
+            </div>
+            <div class="form-group">
+                <label for="width">Width (mm):</label>
+                <input type="number" id="width" name="width" step="0.1">
+            </div>
+            <div class="form-group">
+                <label for="filmMic">Film Mic (μ):</label>
+                <input type="number" id="filmMic" name="filmMic" step="0.1">
+            </div>
+            <div class="form-group">
+                <label for="coating">Coating:</label>
+                <input type="text" id="coating" name="coating">
+            </div>
+            <div class="form-group">
+                <label for="colour">Colour:</label>
+                <select id="colour" name="colour">
+                    <option value="">Select Colour</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="style">Style:</label>
+                <input type="text" id="style" name="style">
+            </div>
+            <div class="form-group">
+                <label for="length">Length (m):</label>
+                <input type="number" id="length" name="length" step="0.1">
+            </div>
+            <div class="form-group">
+                <label for="netWeight">Net Weight (KG):</label>
+                <input type="number" id="netWeight" name="netWeight" step="0.01" readonly>
+            </div>
+            <div class="form-group">
+                <label for="coreWeight">Core Weight (KG):</label>
+                <input type="number" id="coreWeight" name="coreWeight" step="0.01">
+            </div>
+            <div class="form-group">
+                <label for="grossWeight">Gross Weight (KG):</label>
+                <input type="number" id="grossWeight" name="grossWeight" step="0.01" readonly>
+            </div>
+            <div class="form-group">
+                <label for="operator">Operator:</label>
+                <input type="text" id="operator" name="operator" required>
+            </div>
+            <div class="form-group">
+                <label for="machine">Machine:</label>
+                <select id="machine" name="machine">
                     <option value="">Select Machine</option>
                     <option value="A">A</option>
                     <option value="B">B</option>
                     <option value="C">C</option>
                 </select>
-
             </div>
             <div class="form-group">
-                <label>Date</label>
-                <input type="date" id="date" required>
+                <label for="date">Date:</label>
+                <input type="date" id="date" name="date" required>
             </div>
-            <div class="form-group">
-                <label>Roll No.</label>
-                <input type="text" id="rollno" required>
+            <div class="button-group">
+                <button id="save-print-btn">Save & Print</button>
             </div>
-            <div class="form-group">
-                <label>Width (mm)</label>
-                <input type="number" id="width" step="0.01">
-            </div>
-            <div class="form-group">
-                <label>Film Mic</label>
-                <input type="number" id="filmmic" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Coating</label>
-                <input type="text" id="coating">
-            </div>
-            <div class="form-group">
-                <label>Colour</label>
-                <select id="colour">
-                    <option value="">Select Colour</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Style</label>
-                <input type="text" id="style">
-            </div>
-            <div class="form-group">
-                <label>Length (m)</label>
-                <input type="number" id="length" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Net Weight (kg)</label>
-                <input type="number" id="net-weight" readonly>
-            </div>
-            <div class="form-group">
-                <label>Core Weight (kg)</label>
-                <input type="number" id="core-weight" step="0.01">
-            </div>
-            <div class="form-group">
-                <label>Gross Weight (kg)</label>
-                <input type="number" id="gross-weight" readonly>
-            </div>
-            <div class="form-group">
-                <label>Operator</label>
-                <input type="text" id="operator" required>
-            </div>
-        </div>
-        <div class="button-group">
-            <button id="save-print-btn">Save & Print</button>
         </div>
     </div>
 
@@ -481,6 +481,7 @@
                 <tr><td class="label">Core Weight</td><td class="value"></td></tr>
                 <tr><td class="label">Gross Weight</td><td class="value"></td></tr>
                 <tr><td class="label">Operator</td><td class="value"></td></tr>
+                <tr><td class="label">Machine</td><td class="value"></td></tr>
             </table>
         </div>
         
@@ -491,12 +492,12 @@
         const statusDiv = document.getElementById('status');
         const weightDisplay = document.getElementById('weight-display');
         const portSelect = document.getElementById('port-select');
-        const machineSelect = document.getElementById('machine-select');
+        const machineSelect = document.getElementById('machine');
         const refreshPortsBtn = document.getElementById('refresh-ports');
         const restartBtn = document.getElementById('restart-btn');
-        const netWeightInput = document.getElementById('net-weight');
-        const coreWeightInput = document.getElementById('core-weight');
-        const grossWeightInput = document.getElementById('gross-weight');
+        const netWeightInput = document.getElementById('netWeight');
+        const coreWeightInput = document.getElementById('coreWeight');
+        const grossWeightInput = document.getElementById('grossWeight');
         const dataTableBody = document.getElementById('data-table-body');
         
         let savedRecords = [];
@@ -548,7 +549,8 @@ function generatePrintLayout(record) {
         record.netWeight + ' kg',
         record.coreWeight + ' kg',
         record.grossWeight + ' kg',
-        record.operator
+        record.operator,
+        record.machine
     ];
 
     cells.forEach((cell, index) => {
@@ -622,9 +624,9 @@ function printRecord(index) {
         //     const formData = {
         //         machine: machineSelect.value,
         //         date: new Date(document.getElementById('date').value + 'T00:00:00').toISOString(),
-        //         rollNo: document.getElementById('rollno').value,
+        //         rollNo: document.getElementById('rollNo').value,
         //         width: parseFloat(document.getElementById('width').value), // Convert to number
-        //         filmMic: parseFloat(document.getElementById('filmmic').value), // Convert to number
+        //         filmMic: parseFloat(document.getElementById('filmMic').value), // Convert to number
         //         coating: document.getElementById('coating').value,
         //         colour: document.getElementById('colour').value,
         //         style: document.getElementById('style').value,
@@ -673,9 +675,9 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
     const formData = {
         machine: machineSelect.value,
         date: new Date(document.getElementById('date').value + 'T00:00:00').toISOString(),
-        rollNo: document.getElementById('rollno').value,
+        rollNo: document.getElementById('rollNo').value,
         width: parseFloat(document.getElementById('width').value),
-        filmMic: parseFloat(document.getElementById('filmmic').value),
+        filmMic: parseFloat(document.getElementById('filmMic').value),
         coating: document.getElementById('coating').value,
         colour: document.getElementById('colour').value,
         style: document.getElementById('style').value,

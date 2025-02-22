@@ -2,11 +2,20 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const path = require('path');
+const ZPLPrinter = require('./zpl-printer');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Configure logging
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+log.info('App starting...');
 
 let mainWindow;
 let serialPort;
 let parser;
 let isPortBusy = false;
+let zplPrinter;
 
 // Serial port configuration with backup ports
 const SERIAL_CONFIG = {
@@ -32,6 +41,13 @@ function createWindow() {
         closeSerialPort().catch(err => {
             console.error('Error closing port during window closure:', err);
         });
+    });
+
+    // Initialize ZPL printer after window creation
+    zplPrinter = new ZPLPrinter({
+        type: 'serial',  // Change to 'network' if using network printer
+        serialPort: 'COM4',  // Update this to match your Zebra printer's port
+        baudRate: 9600
     });
 }
 
@@ -170,7 +186,6 @@ function setupParser() {
     }
 }
 
-
 async function closeSerialPort() {
     if (serialPort && serialPort.isOpen) {
         return new Promise((resolve, reject) => {
@@ -218,6 +233,8 @@ app.whenReady().then(async () => {
     try {
         createWindow();
         await initSerialPort();
+        // Check for updates
+        autoUpdater.checkForUpdatesAndNotify();
     } catch (err) {
         console.error('Error during app initialization:', err);
     }
@@ -267,4 +284,65 @@ ipcMain.on('restart-serial', async () => {
         console.error('Error handling restart-serial:', err);
         handleSerialError('Restart failed', err);
     }
+});
+
+// Add new IPC handler for printing
+ipcMain.on('print-label', async (event, data) => {
+    try {
+        // Calculate gross weight if not provided
+        if (!data.grossWeight && data.netWeight && data.coreWeight) {
+            data.grossWeight = (parseFloat(data.netWeight) + parseFloat(data.coreWeight)).toFixed(2);
+        }
+
+        // Format weights to include units
+        if (data.netWeight) data.netWeight += ' KG';
+        if (data.coreWeight) data.coreWeight += ' KG';
+        if (data.grossWeight) data.grossWeight += ' KG';
+        
+        // Add units to measurements if provided
+        if (data.width) data.width += ' mm';
+        if (data.length) data.length += ' m';
+        if (data.filmMic) data.filmMic += ' μ';
+
+        await zplPrinter.print(data);
+        event.reply('print-status', { success: true });
+    } catch (err) {
+        console.error('Printing error:', err);
+        event.reply('print-status', { 
+            success: false, 
+            error: err.message 
+        });
+    }
+});
+
+// Auto-updater events
+autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+});
+
+autoUpdater.on('update-available', (info) => {
+    log.info('Update available.');
+    // You can notify the user here if you want
+    mainWindow.webContents.send('update-available');
+});
+
+autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available.');
+});
+
+autoUpdater.on('error', (err) => {
+    log.error('Error in auto-updater. ' + err);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = `Download speed: ${progressObj.bytesPerSecond}`;
+    log_message = `${log_message} - Downloaded ${progressObj.percent}%`;
+    log_message = `${log_message} (${progressObj.transferred}/${progressObj.total})`;
+    log.info(log_message);
+    mainWindow.webContents.send('download-progress', progressObj.percent);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded');
+    mainWindow.webContents.send('update-downloaded');
 });

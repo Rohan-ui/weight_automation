@@ -73,3 +73,94 @@ document.getElementById('packagingForm').addEventListener('submit', (e) => {
 document.getElementById('closeDialog').addEventListener('click', () => {
   document.getElementById('dialog').style.display = 'none';
 });
+
+// Update the print function to use ZPL with all fields
+function printRecord(index) {
+    const record = records[index];
+    const printData = {
+        date: record.date || record.timestamp,
+        rollNo: record.rollNo || `ROLL${index + 1}`,
+        width: record.width || '',
+        filmMic: record.filmMic || '',
+        coating: record.coating || '',
+        colour: record.colour || '',
+        style: record.style || '',
+        length: record.length || '',
+        netWeight: record.weight || '', // Using the weight from scale as net weight
+        coreWeight: record.coreWeight || '',
+        grossWeight: record.grossWeight || '',
+        operator: record.operator || ''
+    };
+
+    // Send print request to main process
+    ipcRenderer.send('print-label', printData);
+}
+
+// Add function to update form fields
+function updateFormFields(weight) {
+    document.getElementById('weight').value = weight;
+    document.getElementById('netWeight').value = weight;
+    calculateGrossWeight();
+}
+
+// Add function to calculate gross weight
+function calculateGrossWeight() {
+    const netWeight = parseFloat(document.getElementById('netWeight').value) || 0;
+    const coreWeight = parseFloat(document.getElementById('coreWeight').value) || 0;
+    const grossWeight = netWeight + coreWeight;
+    document.getElementById('grossWeight').value = grossWeight.toFixed(2);
+}
+
+// Add event listeners for weight calculations
+document.getElementById('netWeight').addEventListener('input', calculateGrossWeight);
+document.getElementById('coreWeight').addEventListener('input', calculateGrossWeight);
+
+// Add listener for print status
+ipcRenderer.on('print-status', (event, response) => {
+    if (response.success) {
+        showNotification('Label printed successfully', 'success');
+    } else {
+        showNotification('Print failed: ' + response.error, 'error');
+    }
+});
+
+// Update notification
+if (ipcRenderer) {
+  ipcRenderer.on('update-available', () => {
+    // Show update available notification
+    const notification = document.createElement('div');
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+        <div class="update-message">
+            A new update is available! Downloading...
+        </div>
+    `;
+    document.body.appendChild(notification);
+  });
+
+  ipcRenderer.on('download-progress', (event, percent) => {
+    // Update progress notification if you want
+    const notification = document.querySelector('.update-notification');
+    if (notification) {
+        notification.querySelector('.update-message').textContent = 
+            `Downloading update: ${Math.round(percent)}%`;
+    }
+  });
+
+  ipcRenderer.on('update-downloaded', () => {
+    // Show restart notification
+    const notification = document.querySelector('.update-notification');
+    if (notification) {
+        notification.innerHTML = `
+            <div class="update-message">
+                Update downloaded! Restart the application to apply the update.
+            </div>
+            <button onclick="restartApp()" class="update-button">Restart Now</button>
+        `;
+    }
+  });
+
+  function restartApp() {
+    ipcRenderer.send('restart-app');
+  }
+}

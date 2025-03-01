@@ -3,43 +3,47 @@ const { SerialPort } = require('serialport');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const os = require("os");
 
 class ZPLPrinter {
     constructor(config = {}) {
         this.config = {
             type: config.type || 'usb', // 'usb', 'network', or 'serial'
-            printerName: config.printerName || 'ZDesigner ZD230-203dpi ZPL', // Name of your Zebra printer
-            printerPort: 'USB001', // Hardcoded printer port
+            printerName: 'ZebraPrinter', // Dynamically set by user
+            printerPort: config.printerPort || '', // Dynamically set
             address: config.address || '192.168.1.100',
             port: config.port || 9100,
             serialPort: config.serialPort || 'COM1',
-            baudRate: config.baudRate || 9600,
-            deviceId: config.deviceId || '', // USB device ID
-            driverName: config.driverName || 'usbprint.inf' // Driver name
+            baudRate: config.baudRate || 9600
         };
+    }
+
+    static async getPrinters() {
+        return new Promise((resolve, reject) => {
+            exec('wmic printer get Name', (error, stdout, stderr) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    const printers = stdout.split("\n").slice(1).map(line => line.trim()).filter(Boolean);
+                    resolve(printers);
+                }
+            });
+        });
     }
 
     generateZPL(data) {
         console.log('generateZPL called with data:', data);
         
-        // Start ZPL format
         let zpl = '^XA';
-        zpl += '^PW752';  // Print width
-        zpl += '^LL752';  // Label length
-        zpl += '^LH0,0';  // Home position
-        zpl += '^CI28';   // Unicode encoding
-
-        // Draw outer box and vertical divider
+        zpl += '^PW752^LL752^LH0,0^CI28';
         zpl += '^FO0,0^GB752,752,2^FS';
         zpl += '^FO376,0^GB2,752,2^FS';
 
-        // Draw horizontal lines
         for (let i = 1; i <= 11; i++) {
             const y = i * 62;
             zpl += `^FO0,${y}^GB752,2,2^FS`;
         }
 
-        // Define fields and their positions
         const fields = [
             { label: 'Date', value: new Date(data.date || data.timestamp).toLocaleDateString() },
             { label: 'Roll No.', value: data.rollNo || '' },
@@ -55,24 +59,15 @@ class ZPLPrinter {
             { label: 'Operator', value: data.operator || '' }
         ];
 
-        console.log('Fields to print:', fields);
-
-        // Add field labels and values
         fields.forEach((field, index) => {
             const y = (index * 62) + 10;
-            // Label (left column)
             zpl += `^FO20,${y}^A0N,38,38^FD${field.label}^FS`;
-            // Value (right column)
             zpl += `^FO400,${y}^A0N,38,38^FD${field.value}^FS`;
         });
 
-        // End ZPL format with Form Feed command
         zpl += '^XZ\n^FF';
-        
-        console.log('Final ZPL code:', zpl);
         return zpl;
     }
-    
 
     async print(data) {
         console.log('print method called with data:', data);
@@ -80,26 +75,22 @@ class ZPLPrinter {
         console.log('Generated ZPL:', zplData);
 
         if (this.config.type === 'usb') {
-            console.log('Using USB printer');
             return this.printUSB(zplData);
         } else if (this.config.type === 'network') {
-            console.log('Using network printer');
             return this.printNetwork(zplData);
         } else {
-            console.log('Using serial printer');
             return this.printSerial(zplData);
         }
     }
 
-
     printUSB(zplData) {
         return new Promise((resolve, reject) => {
-            const printerShareName = "\\\\DESKTOP-EDMAHFF\\ZebraPrinter";
-    
-            // Create a temporary file in the system temp directory
-            const tempFile = "C:\\port\\temp_label.zpl";
-            
-            // Use the COPY command to send the file directly to the printer
+            const desktopName = os.hostname();
+            const printerShareName = `\\\\${desktopName}\\${this.config.printerName}`;
+
+            const tempFile = path.join(os.tmpdir(), "temp_label.zpl");
+            fs.writeFileSync(tempFile, zplData, 'utf8');
+
             exec(`COPY /B "${tempFile}" "${printerShareName}"`, (error, stdout, stderr) => {
                 if (error) {
                     console.error("Printing failed:", error);
@@ -111,7 +102,6 @@ class ZPLPrinter {
             });
         });
     }
-    
 
     printNetwork(zplData) {
         return new Promise((resolve, reject) => {
@@ -137,22 +127,22 @@ class ZPLPrinter {
     printSerial(zplData) {
         return new Promise((resolve, reject) => {
             const port = new SerialPort({
-                path: "COM4", // Use your correct COM port
-                baudRate: 9600,
+                path: this.config.serialPort,
+                baudRate: this.config.baudRate,
                 dataBits: 8,
                 parity: 'none',
                 stopBits: 1,
                 flowControl: false,
                 autoOpen: false
             });
-    
+
             port.open((err) => {
                 if (err) {
                     console.error("Error opening serial port:", err);
                     reject(err);
                     return;
                 }
-    
+
                 port.write(zplData, (err) => {
                     if (err) {
                         console.error("Error writing to serial port:", err);
@@ -161,18 +151,16 @@ class ZPLPrinter {
                         console.log("Print job sent successfully!");
                         resolve();
                     }
-    
                     port.close();
                 });
             });
-    
+
             port.on('error', (err) => {
                 console.error("Serial port error:", err);
                 reject(err);
             });
         });
     }
-    
 }
 
 module.exports = ZPLPrinter;

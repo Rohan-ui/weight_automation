@@ -25,6 +25,7 @@ const SERIAL_CONFIG = {
     alternativePorts: ['COM3', 'COM4', 'COM6']
 };
 
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -56,7 +57,7 @@ function createWindow() {
         // Initialize ZPL printer after getting printer list
         zplPrinter = new ZPLPrinter({
             type: 'usb',
-            printerName: 'ZDesigner', // We'll update this based on what we find
+            printerName: 'ZebraPrinter', // We'll update this based on what we find
         });
         
         console.log('ZPL Printer initialized with config:', zplPrinter.config);
@@ -73,6 +74,31 @@ async function listAvailablePorts() {
         return [];
     }
 }
+
+// Function to fetch only shared printers
+function getSharedPrinters() {
+    return new Promise((resolve, reject) => {
+        exec('powershell "Get-Printer | Where-Object { $_.Shared -eq $true } | Select-Object -ExpandProperty Name"', 
+        (error, stdout, stderr) => {
+            if (error) {
+                reject(stderr || error);
+                return;
+            }
+            const printers = stdout.split("\n").map(line => line.trim()).filter(line => line);
+            resolve(printers);
+        });
+    });
+}
+
+
+ipcMain.handle("get-shared-printers", async () => {
+    try {
+        return await getSharedPrinters();
+    } catch (error) {
+        console.error("Error fetching shared printers:", error);
+        return [];
+    }
+});
 
 async function findAvailablePort() {
     try {
@@ -241,6 +267,9 @@ function notifyRenderer(channel, data) {
     }
 }
 
+
+
+
 app.whenReady().then(async () => {
     try {
         createWindow();
@@ -310,21 +339,19 @@ ipcMain.on('restart-serial', async () => {
 // Add new IPC handler for printing
 ipcMain.on('print-label', async (event, data) => {
     try {
-        // Log to both console and file
-        log.info('Received print request with data:', data);
-        console.log('Received print request with data:', data);
+        // Store original data for potential retry
+        const printData = {
+            originalData: data,
+            timestamp: new Date().toISOString()
+        };
+
+        await zplPrinter.print(data);
         
-        await zplPrinter.print(data);  // Pass the actual data
-        
-        log.info('Print completed successfully');
-        console.log('Print completed successfully');
-        
-        event.reply('print-status', { success: true });
+        event.reply('print-status', { 
+            success: true,
+            data: printData
+        });
     } catch (err) {
-        log.error('Printing error:', err);
-        console.error('Printing error:', err);
-        
-        // Send detailed error to renderer
         const errorMessage = {
             success: false,
             error: err.message,
@@ -332,9 +359,10 @@ ipcMain.on('print-label', async (event, data) => {
                 code: err.code,
                 syscall: err.syscall,
                 path: err.path
-            }
+            },
+            originalData: data  // Include original data for retry
         };
-        console.error('Error details:', errorMessage);
+        
         event.reply('print-status', errorMessage);
     }
 });

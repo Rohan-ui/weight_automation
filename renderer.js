@@ -1,12 +1,24 @@
-const { ipcRenderer } = window.require ? require('electron') : { ipcRenderer: null };
 
 // Set today's date automatically when the page loads
-// document.addEventListener('DOMContentLoaded', () => {
-//     console.log('Dom')
-//   const todayDate = new Date().toISOString(); // Get today's date in YYYY-MM-DD format
-//   document.getElementById('date').value = todayDate;
-//   console.log(todayDate)
-// });
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const todayDate = new Date().toISOString(); // Get today's date in YYYY-MM-DD format
+    document.getElementById('date').value = todayDate;
+    console.log(todayDate)
+
+    // Fetch and populate shared printers when the page loads
+    const printers = await window.electronAPI.getSharedPrinters();
+    const printerDropdown = document.getElementById('printerDropdown');
+    printers.forEach(printer => {
+      const option = document.createElement('option');
+      option.value = printer;
+      option.textContent = printer;
+      printerDropdown.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error fetching shared printers:', error);
+  }
+});
 
 // Function to safely get input values
 const getInputValue = (id) => document.getElementById(id)?.value || '';
@@ -25,21 +37,7 @@ if (ipcRenderer) {
   calculateNetWeight();
 }
 
-// Function to calculate net weight
-function calculateNetWeight() {
-  const grossWeightInput = document.getElementById('grossWeight');
-  const coreWeightInput = document.getElementById('coreWeight');
-  const netWeightInput = document.getElementById('netWeight');
 
-  const grossWeight = parseFloat(grossWeightInput.value) || 0;
-  const coreWeight = parseFloat(coreWeightInput.value) || 0;
-
-  // Calculate net weight (gross - core)
-  const netWeight = grossWeight - coreWeight;
-  
-  // Display net weight with 2 decimal places
-  netWeightInput.value = netWeight.toFixed(2);
-}
 
 // Update weight when core weight changes
 document.getElementById('coreWeight').addEventListener('input', calculateNetWeight);
@@ -64,6 +62,20 @@ document.getElementById('packagingForm').addEventListener('submit', (e) => {
   };
 
   console.log("Collected Form Data:", formData); // Debugging
+
+  document.getElementById('packagingForm').reset();
+
+    // Reset date to today
+    document.getElementById('date').valueAsDate = new Date();
+  
+    // Reset weight fields
+    document.getElementById('grossWeight').value = defaultWeight;
+    document.getElementById('netWeight').value = defaultWeight;
+  
+    // Set focus to first input
+    setTimeout(() => {
+      document.getElementById('rollNo').focus();
+    }, 50);
 
   // Populate the data table with the form data
   const dataTable = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
@@ -113,8 +125,14 @@ function printRecord(index) {
     };
     console.log('Sending print data:', printData);  // Test log
 
+    document.getElementById('rollNo').focus();
+
     // Send print request to main process
     ipcRenderer.send('print-label', printData);
+    setTimeout(() => {
+      document.getElementById('rollNo').focus();
+    }, 100);
+    
 }
 
 // Add function to update form fields
@@ -125,20 +143,34 @@ function updateFormFields(weight) {
 }
 
 // Add function to calculate gross weight
-function calculateGrossWeight() {
-    const netWeight = parseFloat(document.getElementById('netWeight').value) || 0;
-    const coreWeight = parseFloat(document.getElementById('coreWeight').value) || 0;
-    const grossWeight = netWeight + coreWeight;
-    document.getElementById('grossWeight').value = grossWeight.toFixed(2);
+function calculateNetWeight() {
+  const grossWeightInput = document.getElementById('grossWeight');
+  const coreWeightInput = document.getElementById('coreWeight');
+  const netWeightInput = document.getElementById('netWeight');
+
+  // Reset inputs if they contain invalid values
+  [grossWeightInput, coreWeightInput].forEach(input => {
+    if(isNaN(parseFloat(input.value))) input.value = '';
+  });
+
+  const grossWeight = parseFloat(grossWeightInput.value) || 0;
+  const coreWeight = parseFloat(coreWeightInput.value) || 0;
+
+  netWeightInput.value = (grossWeight - coreWeight).toFixed(2);
 }
 
-// Add event listeners for weight calculations
-document.getElementById('netWeight').addEventListener('input', calculateGrossWeight);
-document.getElementById('coreWeight').addEventListener('input', calculateGrossWeight);
+// Add this cleanup function to be called after successful print
+function cleanupForm() {
+  document.getElementById('packagingForm').reset();
+  document.getElementById('date').valueAsDate = new Date();
+  document.getElementById('rollNo').focus();
+}
 
 // Add listener for print status
 ipcRenderer.on('print-status', (event, response) => {
+
     if (response.success) {
+
         showNotification('Label printed successfully', 'success');
     } else {
         showNotification('Print failed: ' + response.error, 'error');

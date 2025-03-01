@@ -437,6 +437,10 @@
         </select>
         <button id="refresh-ports">Refresh Ports</button>
         <button id="restart-btn">Restart Connection</button>
+        <select id="printer-select">
+            <option value="">Select Printer</option>
+        </select>
+        <button id="print-btn">Print</button>
     </div>
 
     <h2>Current Weight:</h2>
@@ -445,7 +449,7 @@
 
     <div class="form-section">
         <h2>Production Data Entry</h2>
-        <div class="form-container">
+        <form class="form-container">
             <div class="form-rows">
                 <!-- First Row -->
                 <div class="form-row">
@@ -517,7 +521,7 @@
             <div class="button-group">
                 <button id="save-print-btn" class="save-btn">Save & Print</button>
             </div>
-        </div>
+        </form>
     </div>
 
     <!-- Hidden print layout -->
@@ -568,9 +572,6 @@
                 <tr><td class="label">Machine</td><td class="value"></td></tr>
             </table>
         </div>
-        
-
-
     <script>
         const { ipcRenderer } = require('electron');
         const statusDiv = document.getElementById('status');
@@ -584,6 +585,51 @@
         const coreWeightInput = document.getElementById('coreWeight');
         const grossWeightInput = document.getElementById('grossWeight');
         const dataTableBody = document.getElementById('data-table-body');
+
+        const form = document.querySelector('.form-container');
+        const dateInput = document.getElementById('date');
+        const rollNoInput = document.getElementById('rollNo');
+
+
+        // Replace clearFormInputs and focusFirstInput with this optimized version
+        function cleanupForm() {
+    // Reset form values
+    form.reset();
+    
+    // Reset special fields with default values
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+    
+    // Clear validation states
+    document.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+    
+    // More aggressive focus handling for Electron environments
+    // First, blur any currently focused element
+    if (document.activeElement) {
+        document.activeElement.blur();
+    }
+    
+    // Use a longer timeout to ensure all async operations have completed
+    setTimeout(() => {
+        // First make the element visible in viewport if needed
+        rollNoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Try multiple focus attempts with increasing delays
+        rollNoInput.focus();
+        
+        // Additional focus attempts with increasing delays
+        setTimeout(() => rollNoInput.focus(), 100);
+        setTimeout(() => rollNoInput.focus(), 300);
+        
+        // If still not focused, try click then focus as a fallback
+        setTimeout(() => {
+            if (document.activeElement !== rollNoInput) {
+                rollNoInput.click();
+                rollNoInput.focus();
+            }
+        }, 500);
+    }, 200);
+}
         
         let savedRecords = [];
         
@@ -682,28 +728,35 @@ function deleteRecord(index) {
 }
 function printRecord(index) {
     const record = savedRecords[index];
-    const printContainer = generatePrintLayout(record);
-    
-    // Store current body overflow style
-    const originalOverflow = document.body.style.overflow;
-    
-    // Hide scrollbars during printing
-    document.body.style.overflow = 'hidden';
-    
-    // Print the document
-    window.print();
-    
-    // Restore original overflow and hide print container
-    setTimeout(() => {
-        document.body.style.overflow = originalOverflow;
-        printContainer.style.display = 'none';
-    }, 500);
+    // Send print command directly to main process
+    ipcRenderer.send('print-label', record);
 }
 
         coreWeightInput.addEventListener('input', calculateGrossWeight);
         
 
-document.getElementById('save-print-btn').addEventListener('click', async () => {
+// Add function to clear form inputs
+function clearFormInputs() {
+    const form = document.querySelector('.form-container');
+    form.querySelectorAll('input, select').forEach(input => {
+        if (input.type !== 'button') {
+            input.value = '';
+        }
+    });
+}
+
+// Add function to focus first input
+function focusFirstInput() {
+    const firstInput = document.querySelector('.form-container input, .form-container select');
+    if (firstInput) {
+        firstInput.focus();
+    }
+}
+
+document.getElementById('save-print-btn').addEventListener('click', async (e) => {
+    // Prevent default form submission behavior
+    e.preventDefault();
+    
     if (!machineSelect.value) {
         alert('Please select a machine first');
         return;
@@ -726,6 +779,13 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
     };
 
     try {
+        const startTime = performance.now();
+        
+        // Disable button during processing
+        const btn = document.getElementById('save-print-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
         const response = await fetch('https://deverp.shantipatra.com/api/v1/production-rolls', {
             method: 'POST',
             headers: {
@@ -740,7 +800,20 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
             console.log("Record saved:", result);
             savedRecords.push(formData); // Store locally
             updateDataTable(); // Refresh table
-            alert("Record saved successfully!");
+            
+            // Don't block with alert
+            // Instead of alert, use a non-blocking notification
+            const updateStatusDiv = document.getElementById('update-status');
+            updateStatusDiv.style.display = 'block';
+            updateStatusDiv.textContent = "Record saved successfully!";
+            updateStatusDiv.style.backgroundColor = "#dff0d8";
+            updateStatusDiv.style.color = "#3c763d";
+            updateStatusDiv.style.border = "1px solid #d6e9c6";
+            
+            // Hide the notification after 3 seconds
+            setTimeout(() => {
+                updateStatusDiv.style.display = 'none';
+            }, 3000);
 
             // Send to IPC Renderer if applicable
             ipcRenderer.send('save-record', formData);
@@ -762,20 +835,33 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
             };
             console.log('Sending print data after save:', printData);
             ipcRenderer.send('print-label', printData);
+
+            // Clean up form with our improved function
+            cleanupForm();
         } else {
             throw new Error(result.message || "Failed to save record");
         }
+
+        // Re-enable button
+        btn.disabled = false;
+        btn.textContent = 'Save & Print';
+
+        console.log(`DOM updates completed in ${performance.now() - startTime}ms`);
     } catch (error) {
         console.error("Error saving record:", error);
         alert("Error saving record. Please try again.");
+        
+        // Re-enable button on error
+        const btn = document.getElementById('save-print-btn');
+        btn.disabled = false;
+        btn.textContent = 'Save & Print';
     }
 });
-
         ipcRenderer.on('update-weight', (event, data) => {
             console.log('Received weight data:', data);
             weightDisplay.textContent = `${data.weight} kg`;
 
-            netWeightInput.value = parseFloat(data.weight).toFixed(2); // Set net weight first
+            grossWeightInput.value = parseFloat(data.weight).toFixed(2); // Set net weight first
             calculateGrossWeight(); // Then calculate correct gross weight
 
 });
@@ -787,18 +873,27 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
                 'Disconnected';
         });
 
-        ipcRenderer.on('print-status', (event, status) => {
-            if (status.success) {
-                console.log('Print completed successfully');
-            } else {
-                console.error('Print failed:', status.error);
-                if (status.details) {
-                    console.error('Error details:', status.details);
-                }
-                alert(`Print failed: ${status.error}\nMake sure the printer is connected and powered on.`);
-            }
-        });
+   // Add this to your existing ipcRenderer listeners
+ipcRenderer.on('print-status', (event, status) => {
+    if (!status.success) {
+        const errorDetails = [
+            `Error: ${status.error}`,
+            `Technical Details:`,
+            `- Code: ${status.details?.code || 'N/A'}`,
+            `- System Call: ${status.details?.syscall || 'N/A'}`,
+            `- Path: ${status.details?.path || 'N/A'}`
+        ].join('\n');
 
+        // Show dialog box
+        const shouldRetry = confirm(
+            `Printing Failed!\n\n${errorDetails}\n\nRetry printing?`
+        );
+
+        if (shouldRetry) {
+            ipcRenderer.send('print-label', status.originalData);
+        }
+    }
+});
         document.getElementById('date').valueAsDate = new Date();
         updatePortList();
 
@@ -833,6 +928,35 @@ document.getElementById('save-print-btn').addEventListener('click', async () => 
         // Populate dropdown on page load
         populateColorDropdown();
     </script>
+<script>
+    async function fetchSharedPrinters() {
+        const printers = await window.electronAPI.getSharedPrinters();
+        const select = document.getElementById("printer-select");
+
+        if (printers.length) {
+            select.innerHTML = `<option value="">Select Shared Printer</option>`;
+            printers.forEach(printer => {
+                select.innerHTML += `<option value="${printer}">${printer}</option>`;
+            });
+        } else {
+            select.innerHTML = `<option value="">No shared printers found</option>`;
+        }
+    }
+
+    document.getElementById("print-btn").addEventListener("click", async () => {
+        const printer = document.getElementById("printer-select").value;
+        if (!printer) {
+            alert("Please select a shared printer");
+            return;
+        }
+
+        alert(`Selected Shared Printer: ${printer}`);
+    });
+
+    fetchSharedPrinters();
+</script>
+
+
     
 </body>
 </html>

@@ -71,7 +71,7 @@ class ZPLPrinter {
         console.log('Shift:', shift);
 
         const fields = [
-            { label: 'Date', value: `${formattedDate} ${shiftLabel}` },
+            { label: 'Date', value: `${formattedDate} ${shift}` },
             { label: 'Roll No.', value: data.rollNo || '' },
             { label: 'Width', value: data.width ? `${data.width} mm` : '' },
             { label: 'Film Mic', value: data.filmMic ? `${data.filmMic} microns` : '' },

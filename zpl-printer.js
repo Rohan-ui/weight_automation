@@ -44,8 +44,34 @@ class ZPLPrinter {
             zpl += `^FO0,${y}^GB752,2,2^FS`;
         }
 
+        const systemDate = new Date();
+
+        // Extract date components in dd/mm/yyyy format
+        const day = String(systemDate.getDate()).padStart(2, '0');
+        const month = String(systemDate.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+        const year = systemDate.getFullYear();
+        const formattedDate = `${day}/${month}/${year}`;
+    
+        // Extract time components
+        const hours24 = systemDate.getHours();
+        const minutes = String(systemDate.getMinutes()).padStart(2, '0');
+    
+        // Convert to 12-hour format with AM/PM
+        const hours12 = hours24 % 12 || 12;
+        const period = hours24 >= 12 ? 'PM' : 'AM';
+        const formattedTime = `${hours12}:${minutes} ${period}`;
+    
+        // Determine the shift
+        const shift = (hours24 >= 8 && hours24 < 20) ? 'Shift I' : 'Shift II';
+    
+        // Output results
+        console.log('System Date & Time:', systemDate.toString()); // Full system time
+        console.log('Parsed IST Date:', formattedDate);
+        console.log('Formatted IST Time:', formattedTime);
+        console.log('Shift:', shift);
+
         const fields = [
-            { label: 'Date', value: new Date(data.date || data.timestamp).toLocaleDateString() },
+            { label: 'Date', value: `${formattedDate} ${shiftLabel}` },
             { label: 'Roll No.', value: data.rollNo || '' },
             { label: 'Width', value: data.width ? `${data.width} mm` : '' },
             { label: 'Film Mic', value: data.filmMic ? `${data.filmMic} microns` : '' },

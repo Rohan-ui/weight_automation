@@ -31,45 +31,47 @@ class ZPLPrinter {
         });
     }
 
-    generateZPL(data) {
+     generateZPL(data) {
         console.log('generateZPL called with data:', data);
         
         let zpl = '^XA';
-        zpl += '^PW752^LL752^LH0,0^CI28';
-        zpl += '^FO0,0^GB752,752,2^FS';
-        zpl += '^FO376,0^GB2,752,2^FS';
-
+        // Width: 752 dots (~3.7 inches), Height: 1116 dots (~5.5 inches)
+        zpl += '^PW752^LL1116^LH0,0^CI28';
+        zpl += '^FO0,0^GB752,1116,2^FS';   // Box height matches new label length
+        zpl += '^FO376,0^GB2,1116,2^FS';   // Vertical line height matches new label length
+    
+        // Horizontal lines (11 lines, spaced to fit within 1116 dots)
         for (let i = 1; i <= 11; i++) {
-            const y = i * 62;
+            const y = i * 90; // Spacing of 90 dots to distribute 11 gaps across 1116 dots
             zpl += `^FO0,${y}^GB752,2,2^FS`;
         }
-
+    
         const systemDate = new Date();
-
+    
         // Extract date components in dd/mm/yyyy format
         const day = String(systemDate.getDate()).padStart(2, '0');
-        const month = String(systemDate.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+        const month = String(systemDate.getMonth() + 1).padStart(2, '0');
         const year = systemDate.getFullYear();
         const formattedDate = `${day}/${month}/${year}`;
-    
+        
         // Extract time components
         const hours24 = systemDate.getHours();
         const minutes = String(systemDate.getMinutes()).padStart(2, '0');
-    
+        
         // Convert to 12-hour format with AM/PM
         const hours12 = hours24 % 12 || 12;
         const period = hours24 >= 12 ? 'PM' : 'AM';
         const formattedTime = `${hours12}:${minutes} ${period}`;
-    
+        
         // Determine the shift
         const shift = (hours24 >= 8 && hours24 < 20) ? 'Shift I' : 'Shift II';
-    
+        
         // Output results
-        console.log('System Date & Time:', systemDate.toString()); // Full system time
+        console.log('System Date & Time:', systemDate.toString());
         console.log('Parsed IST Date:', formattedDate);
         console.log('Formatted IST Time:', formattedTime);
         console.log('Shift:', shift);
-
+    
         const fields = [
             { label: 'Date', value: `${formattedDate} ${shift}` },
             { label: 'Roll No.', value: data.rollNo || '' },
@@ -84,13 +86,14 @@ class ZPLPrinter {
             { label: 'Gross Weight', value: data.grossWeight ? `${data.grossWeight} kg` : '' },
             { label: 'Operator', value: data.operator || '' }
         ];
-
+    
+        // Adjust field positions and set font height to 50 dots for readability
         fields.forEach((field, index) => {
-            const y = (index * 62) + 10;
-            zpl += `^FO20,${y}^A0N,38,38^FD${field.label}^FS`;
-            zpl += `^FO400,${y}^A0N,38,38^FD${field.value}^FS`;
+            const y = (index * 90) + 20; // Spacing of 90 dots, offset by 20 for padding
+            zpl += `^FO20,${y}^A0N,50,50^FD${field.label}^FS`;  // Left column (labels)
+            zpl += `^FO400,${y}^A0N,50,50^FD${field.value}^FS`; // Right column (values)
         });
-
+    
         zpl += '^XZ\n^FF';
         return zpl;
     }

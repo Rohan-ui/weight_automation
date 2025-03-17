@@ -1,6 +1,6 @@
 {
   "name": "weight-reader",
-  "version": "1.0.13",
+  "version": "1.0.15",
   "description": "Serial port weight reader application",
   "main": "main.js",
   "scripts": {

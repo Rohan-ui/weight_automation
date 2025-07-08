@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weight Reader & Production Entry</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        #status {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+        #weight-display, .form-section {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .form-container {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Form rows container */
+        .form-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Default: single column for mobile */
+        .form-row {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: 1fr;
+        }
+
+        /* For larger screens - two rows with multiple columns */
+        @media (min-width: 768px) {
+            .form-row {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        .form-group input[readonly] {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        #save-btn, #print-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #save-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #print-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        #save-btn:hover {
+            background-color: #45a049;
+        }
+        #print-btn:hover {
+            background-color: #1976D2;
+        }
+        .form-section {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 10px; /* Reduce space below form */
+}
+          /* General Table Styling */
+          .table-section {
+    width: 100%;
+    padding: 0 20px; /* Remove extra top padding */
+    background-color: #f8f9fa;
+    margin-top: 0; /* Remove the extra space */
+}
+
+
+    .table-section h2 {
+        text-align: center;
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #fff;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    /* Table Header Styling */
+    .data-table thead tr {
+        background-color: #007BFF;
+        color: white;
+        text-transform: uppercase;
+    }
+
+    .data-table th, .data-table td {
+    padding: 8px; /* Reduce padding for a compact table */
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+    /* Alternate Row Colors */
+    .data-table tbody tr:nth-child(odd) {
+        background-color: #f2f2f2;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+        background-color: #ffffff;
+    }
+
+    /* Hover Effect */
+    .data-table tbody tr:hover {
+        background-color: #d3e5ff;
+    }
+
+    /* Button Styling */
+    .print-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    .print-btn:hover {
+        background-color: #218838;
+    }
+
+    /* Make Table Cover Full Page */
+    .table-section {
+    display: block;
+}
+
+    .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+@media print {
+    @page {
+        size: 100mm 100mm; /* 3.94 inches = 100mm */
+        margin: 2mm;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        visibility: hidden;
+    }
+
+    .print-container {
+        visibility: visible !important;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 96mm; /* Accounting for margins */
+        height: 96mm;
+    }
+
+    .print-table {
+        width: 100%;
+        height: 100%;
+        border-collapse: collapse;
+        border: 3px solid black;
+    }
+
+    .print-table td {
+        padding: 2mm;
+        line-height: 1;
+    }
+
+    .print-table .label {
+        width: 40%;
+        border-right: 3px solid black;
+        font-size: 12pt;
+        font-weight: 900;
+        font-family: Arial, sans-serif;
+        text-transform: uppercase;
+    }
+
+    .print-table .value {
+        width: 60%;
+        font-size: 14pt;
+        font-weight: 900;
+        font-family: Arial, sans-serif;
+    }
+
+    .print-table tr:not(:last-child) td {
+        border-bottom: 3px solid black;
+    }
+
+    /* Hide everything else when printing */
+    .controls, .form-section, .table-section {
+        display: none !important;
+    }
+}
+
+/* Regular display preview styling */
+.print-container {
+    width: 100mm;
+    height: 100mm;
+    margin: 20px auto;
+    display: none;
+}
+
+.print-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 3px solid black;
+}
+
+.print-table td {
+    padding: 2mm;
+}
+
+.print-table .label {
+    width: 40%;
+    border-right: 3px solid black;
+    font-size: 12pt;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+    text-transform: uppercase;
+}
+
+.print-table .value {
+    width: 60%;
+    font-size: 14pt;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+}
+
+.print-table tr:not(:last-child) td {
+    border-bottom: 3px solid black;
+}
+
+    /* Regular display styling */
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid black;
+    }
+
+    .print-table .label {
+        border-right: 2px solid black;
+        padding: 10px;
+        padding-left: 20px;
+        font-weight: bold;
+        font-size: 20px;
+    }
+
+    .print-table .value {
+        padding: 10px;
+        padding-left: 100px;
+        font-weight: bold;
+        font-size: 20px;
+        text-align: left;
+    }
+
+    /* Add bottom border to all cells except last row */
+    .print-table tr:not(:last-child) td {
+        border-bottom: 2px solid black;
+    }
+
+    /* Regular display styling */
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid black;
+    }
+
+    .print-table .label {
+        border-right: 2px solid black;
+        border-bottom: 2px solid black;
+        padding: 10px;
+        padding-left: 20px;
+        font-weight: bold;
+        font-size: 20px;
+    }
+
+    .print-table .value {
+        border-bottom: 2px solid black;
+        padding: 10px;
+        padding-left: 100px;
+        font-weight: bold;
+        font-size: 20px;
+        text-align: left;
+    }
+
+    .print-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Regular display styling */
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .print-table td {
+        padding: 10px;
+        font-weight: bold;
+        font-size: 20px;
+    }
+
+    .print-table .label {
+        border: 2px solid black;
+        border-right: 2px solid black;
+    }
+
+    .print-table .value {
+        border-top: none;
+        border-right: none;
+        border-left: none;
+        border-bottom: 2px solid black;
+    }
+
+    .print-table tr:last-child .value {
+        border-bottom: none;
+    }
+
+    /* Regular display styling */
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .print-table td {
+        padding: 10px;
+        font-weight: bold;
+        font-size: 20px;
+    }
+
+    .print-table .label {
+        border: 2px solid black;
+        border-right: 2px solid black;
+    }
+
+    .print-table .value {
+        border: none;
+    }
+
+    /* Regular display styling */
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid black;
+    }
+
+    .print-table td {
+        border: 2px solid black;
+        padding: 15px;
+        font-weight: bold;
+        font-size: 18px;
+    }
+
+    </style>
+</head>
+<body>
+    <div id="status" class="disconnected">Disconnected</div>
+    <div id="update-status" style="padding: 10px; margin-bottom: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; display: none;"></div>
+    
+    <div class="controls">
+        <!-- <select id="machine-select">
+            <option value="">Select Machine</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+        </select> -->
+        <select id="port-select">
+            <option value="">Select Port</option>
+        </select>
+        <button id="refresh-ports">Refresh Ports</button>
+        <button id="restart-btn">Restart Connection</button>
+        <select id="printer-select">
+            <option value="">Select Printer</option>
+        </select>
+        <button id="print-btn">Print</button>
+    </div>
+
+    <h2>Current Weight:</h2>
+    <div id="weight-display">Waiting for data...</div>
+    <div id="port-info"></div>
+
+    <div class="form-section">
+        <h2>Production Data Entry</h2>
+        <form class="form-container">
+            <div class="form-rows">
+                <!-- First Row -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="filmNo">Film No:</label>
+                        <input type="text" id="filmNo" name="filmNo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rollNo">Roll No:</label>
+                        <input type="text" id="rollNo" name="rollNo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="machine">Machine:</label>
+                        <select id="machine" name="machine">
+                            <option value="">Select Machine</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="width">Width (mm):</label>
+                        <input type="number" id="width" name="width" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="filmMic">Film Mic (μ):</label>
+                        <select id="filmMic" name="filmMic"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="coating">Coating:</label>
+                        <select id="coating" name="coating"></select>
+                    </div>
+
+
+ 
+
+
+
+
+
+                </div>
+        
+                <!-- Second Row -->
+                <div class="form-row">
+
+                    
+                    <div class="form-group">
+                        <label for="colour">Colour:</label>
+                        <input type="text" id="colour" name="colour" placeholder="Enter colour">
+                    </div>
+                    <div class="form-group">
+                        <label for="style">Style:</label>
+                        <input type="text" id="style" name="style" list="style-options" placeholder="Enter or select style">
+                        <datalist id="style-options"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="printName">Print Name:</label>
+                        <input type="text" id="printName" name="printName">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="length">Length (m):</label>
+                        <input type="number" id="length" name="length" step="1">
+                    </div>
+
+
+                    <div class="form-group">
+                        <label for="netWeight">Net Weight (KG):</label>
+                        <input type="number" id="netWeight" name="netWeight" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="coreWeight">Core Weight (KG):</label>
+                        <input type="number" id="coreWeight" name="coreWeight" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="grossWeight">Gross Weight (KG):</label>
+                        <input type="number" id="grossWeight" name="grossWeight" step="0.01" >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="operator">Operator:</label>
+                        <input type="text" id="operator" name="operator" list="operator-options" placeholder="Enter or select operator">
+                        <datalist id="operator-options"></datalist>
+                    </div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="save-print-btn" class="save-btn">Save & Print</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hidden print layout -->
+    <div class="print-layout" style="display: none;">
+    </div>
+
+    <div class="table-section">
+        <h2>Production Records</h2>
+        <div class="filter-section" style="margin-bottom: 15px;">
+            <label for="date-filter">Filter by Date:</label>
+            <input type="date" id="date-filter" name="date-filter">
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Machine</th>
+                    <th>Film No</th>
+                    <th>Roll No</th>
+                    <th>Width</th>
+                    <th>Film Mic</th>
+                    <th>Coating</th>
+                    <th>Color</th>
+                    <th>Style</th>
+                    <th>Print Name</th>
+                    <th>Length</th>
+                    <th>Net Weight</th>
+                    <th>Core Weight</th>
+                    <th>Gross Weight</th>
+                    <th>Operator</th>
+                    <th class="no-print">Action</th>
+                </tr>
+            </thead>
+            <tbody id="data-table-body">
+            </tbody>
+        </table>
+    </div>
+
+
+        <!-- Updated print container -->
+        <div class="print-container" style="display: none;">
+            <table class="print-table">
+                <tr><td class="label">Date</td><td class="value"></td></tr>
+                <tr><td class="label">Film No.</td><td class="value"></td></tr>
+                <tr><td class="label">Roll No.</td><td class="value"></td></tr>
+                <tr><td class="label">Width</td><td class="value"></td></tr>
+                <tr><td class="label">Film Mic</td><td class="value"></td></tr>
+                <tr><td class="label">Coating</td><td class="value"></td></tr>
+                <tr><td class="label">Colour</td><td class="value"></td></tr>
+                <tr><td class="label">Style</td><td class="value"></td></tr>
+                <tr><td class="label">Print Name</td><td class="value"></td></tr>
+                <tr><td class="label">Length</td><td class="value"></td></tr>
+                <tr><td class="label">Net Weight</td><td class="value"></td></tr>
+                <tr><td class="label">Core Weight</td><td class="value"></td></tr>
+                <tr><td class="label">Gross Weight</td><td class="value"></td></tr>
+                <tr><td class="label">Operator</td><td class="value"></td></tr>
+                <tr><td class="label">Machine</td><td class="value"></td></tr>
+            </table>
+        </div>
+    <script>
+        const { ipcRenderer } = require('electron');
+        const statusDiv = document.getElementById('status');
+        const updateStatusDiv = document.getElementById('update-status');
+        const weightDisplay = document.getElementById('weight-display');
+        const portSelect = document.getElementById('port-select');
+        const machineSelect = document.getElementById('machine');
+        const refreshPortsBtn = document.getElementById('refresh-ports');
+        const restartBtn = document.getElementById('restart-btn');
+        const netWeightInput = document.getElementById('netWeight');
+        const coreWeightInput = document.getElementById('coreWeight');
+        const grossWeightInput = document.getElementById('grossWeight');
+        const dataTableBody = document.getElementById('data-table-body');
+
+        const form = document.querySelector('.form-container');
+        const dateInput = document.getElementById('date');
+        const rollNoInput = document.getElementById('rollNo');
+
+        // Initialize savedRecords and offlineRecords
+let savedRecords = JSON.parse(localStorage.getItem('savedRecords')) || [];
+let offlineRecords = JSON.parse(localStorage.getItem('offlineRecords')) || [];
+
+
+        // Replace clearFormInputs and focusFirstInput with this optimized version
+        function cleanupForm() {
+    // Reset form values
+    form.reset();
+    
+    // Reset special fields with default values
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+    
+    // Clear validation states
+    document.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+    
+    // More aggressive focus handling for Electron environments
+    // First, blur any currently focused element
+    if (document.activeElement) {
+        document.activeElement.blur();
+    }
+    
+    // Use a longer timeout to ensure all async operations have completed
+    setTimeout(() => {
+        // First make the element visible in viewport if needed
+        rollNoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Try multiple focus attempts with increasing delays
+        rollNoInput.focus();
+        
+        // Additional focus attempts with increasing delays
+        setTimeout(() => rollNoInput.focus(), 100);
+        setTimeout(() => rollNoInput.focus(), 300);
+        
+        // If still not focused, try click then focus as a fallback
+        setTimeout(() => {
+            if (document.activeElement !== rollNoInput) {
+                rollNoInput.click();
+                rollNoInput.focus();
+            }
+        }, 500);
+    }, 200);
+}
+        
+        // let savedRecords = [];
+        
+        async function updatePortList() {
+            const ports = await ipcRenderer.invoke('get-available-ports');
+            portSelect.innerHTML = '<option value="">Select Port</option>';
+            ports.forEach(port => {
+                const option = document.createElement('option');
+                option.value = port.path;
+                option.textContent = `${port.path} - ${port.manufacturer || 'Unknown device'}`;
+                portSelect.appendChild(option);
+            });
+        }
+
+        portSelect.addEventListener('change', (event) => {
+            if (event.target.value) {
+                ipcRenderer.send('connect-machine', {
+                    port: event.target.value,
+                    baudRate: 9600,
+                    dataBits: 8
+                });
+            }
+        });
+
+        refreshPortsBtn.addEventListener('click', updatePortList);
+        restartBtn.addEventListener('click', () => ipcRenderer.send('restart-serial'));
+
+        function calculateGrossWeight() {
+    const core = parseFloat(coreWeightInput.value) || 0;
+    const gross = parseFloat(grossWeightInput.value) || 0;
+    netWeightInput.value = (gross - core).toFixed(2);
+}
+
+// Function to filter records by date
+// Function to filter records by date
+function filterRecordsByDate(records, filterDate) {
+    if (!filterDate) return records; // Show all records if no date is selected
+    return records.filter(record => record.date === filterDate);
+}
+
+// Update the table based on the filtered records
+function updateDataTable(filteredRecords = savedRecords) {
+    const dataTableBody = document.getElementById('data-table-body');
+    dataTableBody.innerHTML = ''; // Clear existing content
+    filteredRecords.forEach((record, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${record.date}</td>
+            <td>${record.machine}</td>
+            <td>${record.filmNo}</td>
+            <td>${record.rollNo}</td>
+            <td>${record.width}</td>
+            <td>${record.filmMic}</td>
+            <td>${record.coating}</td>
+            <td>${record.colour}</td>
+            <td>${record.style}</td>
+            <td>${record.printName}</td>
+            <td>${record.length}</td>
+            <td>${record.netWeight}</td>
+            <td>${record.coreWeight}</td>
+            <td>${record.grossWeight}</td>
+            <td>${record.operator}</td>
+            <td class="no-print">
+                <button class="print-btn" onclick="printRecord(${index})">Print</button>
+                <button class="delete-btn" onclick="deleteRecord(${index})">Delete</button>
+            </td>
+        `;
+        dataTableBody.appendChild(row);
+    });
+}
+
+// Add event listener for the date filter
+document.getElementById('date-filter').addEventListener('change', (e) => {
+    const selectedDate = e.target.value;
+    const filteredRecords = filterRecordsByDate(savedRecords, selectedDate);
+    updateDataTable(filteredRecords);
+});
+
+// Clear filter button event listener
+document.getElementById('clear-filter-btn').addEventListener('click', () => {
+    document.getElementById('date-filter').value = '';
+    updateDataTable(savedRecords);
+});
+
+function generatePrintLayout(record) {
+    const printContainer = document.querySelector('.print-container');
+    const cells = printContainer.querySelectorAll('.value');
+    
+    const values = [
+        record.date.split('T')[0],
+        record.filmNo,
+        record.rollNo,
+        record.width + ' mm',
+        record.filmMic + ' μ',
+        record.coating,
+        record.colour,
+        record.style,
+        record.printName,
+        record.length + ' m',
+        record.netWeight + ' kg',
+        record.coreWeight + ' kg',
+        record.grossWeight + ' kg',
+        record.operator,
+        record.machine
+    ];
+
+    cells.forEach((cell, index) => {
+        cell.textContent = values[index] || '';
+    });
+
+    printContainer.style.display = 'block';
+    return printContainer;
+}
+// function updateDataTable() {
+//     const dataTableBody = document.getElementById('data-table-body');
+//     dataTableBody.innerHTML = ''; // Clear existing content
+
+//     savedRecords.forEach((record, index) => {
+//         const row = document.createElement('tr');
+//         row.innerHTML = `
+//             <td>${record.date}</td>
+//             <td>${record.machine}</td>
+//             <td>${record.filmNo}</td>
+//             <td>${record.rollNo}</td>
+//             <td>${record.width}</td>
+//             <td>${record.filmMic}</td>
+//             <td>${record.coating}</td>
+//             <td>${record.colour}</td>
+//             <td>${record.style}</td>
+//             <td>${record.printName}</td>
+//             <td>${record.length}</td>
+//             <td>${record.netWeight}</td>
+//             <td>${record.coreWeight}</td>
+//             <td>${record.grossWeight}</td>
+//             <td>${record.operator}</td>
+//             <td class="no-print">
+//                 <button class="print-btn" onclick="printRecord(${index})">Print</button>
+//                 <button class="delete-btn" onclick="deleteRecord(${index})">Delete</button>
+//             </td>
+//         `;
+//         dataTableBody.appendChild(row);
+//     });
+// }
+
+
+function deleteRecord(index) {
+    if (confirm("Are you sure you want to delete this record?")) {
+        savedRecords.splice(index, 1); // Remove the selected record
+        updateDataTable(); // Refresh the table
+    }
+}
+function printRecord(index) {
+    const record = savedRecords[index];
+    // Send print command directly to main process
+    ipcRenderer.send('print-label', record);
+}
+
+        coreWeightInput.addEventListener('input', calculateGrossWeight);
+        
+
+// Add function to clear form inputs
+function clearFormInputs() {
+    const form = document.querySelector('.form-container');
+    form.querySelectorAll('input, select').forEach(input => {
+        if (input.type !== 'button') {
+            input.value = '';
+        }
+    });
+}
+
+// Add function to focus first input
+function focusFirstInput() {
+    const firstInput = document.querySelector('.form-container input, .form-container select');
+    if (firstInput) {
+        firstInput.focus();
+    }
+}
+
+
+// Update data table on page load
+updateDataTable();
+
+// Function to check if the app is online
+function isOnline() {
+    return navigator.onLine;
+}
+
+// Function to save record to localStorage (for offline use)
+function saveToLocalStorage(record) {
+    offlineRecords.push(record);
+    localStorage.setItem('offlineRecords', JSON.stringify(offlineRecords));
+    savedRecords.push(record); // Also add to savedRecords for table display
+    localStorage.setItem('savedRecords', JSON.stringify(savedRecords));
+    updateDataTable();
+    showNotification('Record saved locally due to no internet connection.', '#f2dede', '#a94442', '#ebccd1');
+}
+
+// Function to show non-blocking notification
+function showNotification(message, bgColor, textColor, borderColor) {
+    const updateStatusDiv = document.getElementById('update-status');
+    updateStatusDiv.style.display = 'block';
+    updateStatusDiv.textContent = message;
+    updateStatusDiv.style.backgroundColor = bgColor;
+    updateStatusDiv.style.color = textColor;
+    updateStatusDiv.style.border = `1px solid ${borderColor}`;
+    setTimeout(() => {
+        updateStatusDiv.style.display = 'none';
+    }, 3000);
+}
+
+// Function to sync offline records when internet is restored
+async function syncOfflineRecords() {
+    if (!isOnline() || offlineRecords.length === 0) return;
+
+    const updateStatusDiv = document.getElementById('update-status');
+    updateStatusDiv.style.display = 'block';
+    updateStatusDiv.textContent = `Syncing ${offlineRecords.length} offline records...`;
+    updateStatusDiv.style.backgroundColor = '#d9d9d9';
+    updateStatusDiv.style.color = '#333';
+    updateStatusDiv.style.border = '1px solid #ccc';
+
+    const failedRecords = [];
+    for (let i = 0; i < offlineRecords.length; i++) {
+        const record = offlineRecords[i];
+        try {
+            const response = await fetch('https://erp.shantipatra.com/api/v1/production-rolls', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(record)
+            });
+
+            if (response.ok) {
+                console.log('Synced offline record:', record);
+            } else {
+                const result = await response.json();
+                console.error('Failed to sync record:', result.message);
+                failedRecords.push(record);
+            }
+        } catch (error) {
+            console.error('Error syncing record:', error);
+            failedRecords.push(record);
+        }
+    }
+
+    // Update offlineRecords to only include failed syncs
+    offlineRecords = failedRecords;
+    localStorage.setItem('offlineRecords', JSON.stringify(offlineRecords));
+
+    // Update UI
+    updateStatusDiv.style.display = 'block';
+    if (failedRecords.length === 0) {
+        updateStatusDiv.textContent = 'All offline records synced successfully!';
+        updateStatusDiv.style.backgroundColor = '#dff0d8';
+        updateStatusDiv.style.color = '#3c763d';
+        updateStatusDiv.style.border = '1px solid #d6e9c6';
+    } else {
+        updateStatusDiv.textContent = `${failedRecords.length} records failed to sync. Will retry later.`;
+        updateStatusDiv.style.backgroundColor = '#f2dede';
+        updateStatusDiv.style.color = '#a94442';
+        updateStatusDiv.style.border = '1px solid #ebccd1';
+    }
+    setTimeout(() => {
+        updateStatusDiv.style.display = 'none';
+    }, 3000);
+}
+
+document.getElementById('save-print-btn').addEventListener('click', async (e) => {
+    // Prevent default form submission behavior
+    e.preventDefault();
+    
+    if (!machineSelect.value) {
+        alert('Please select a machine first');
+        return;
+    }
+
+    const formData = {
+        machine: machineSelect.value,
+        date: new Date(document.getElementById('date').value + 'T00:00:00').toISOString(),
+        filmNo: document.getElementById('filmNo').value,
+        rollNo: document.getElementById('rollNo').value,
+        width: parseFloat(document.getElementById('width').value),
+        filmMic: parseFloat(document.getElementById('filmMic').value),
+        coating: document.getElementById('coating').value,
+        colour: document.getElementById('colour').value,
+        style: document.getElementById('style').value,
+        printName: document.getElementById('printName').value,
+        length: parseFloat(document.getElementById('length').value),
+        netWeight: parseFloat(netWeightInput.value),
+        coreWeight: parseFloat(coreWeightInput.value),
+        grossWeight: parseFloat(grossWeightInput.value),
+        operator: document.getElementById('operator').value
+    };
+
+    try {
+        const startTime = performance.now();
+        
+        // Disable button during processing
+        const btn = document.getElementById('save-print-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        const response = await fetch('https://erp.shantipatra.com/api/v1/production-rolls', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log("Record saved:", result);
+            savedRecords.push(formData); // Store locally
+            updateDataTable(); // Refresh table
+            
+            // Don't block with alert
+            // Instead of alert, use a non-blocking notification
+            const updateStatusDiv = document.getElementById('update-status');
+            updateStatusDiv.style.display = 'block';
+            updateStatusDiv.textContent = "Record saved successfully!";
+            updateStatusDiv.style.backgroundColor = "#dff0d8";
+            updateStatusDiv.style.color = "#3c763d";
+            updateStatusDiv.style.border = "1px solid #d6e9c6";
+            
+            // Hide the notification after 3 seconds
+            setTimeout(() => {
+                updateStatusDiv.style.display = 'none';
+            }, 3000);
+
+            // Send to IPC Renderer if applicable
+            ipcRenderer.send('save-record', formData);
+
+            // Automatically print the saved record using ZPL printer
+            const printData = {
+                date: formData.date,
+                rollNo: formData.rollNo,
+                width: formData.width,
+                filmMic: formData.filmMic,
+                coating: formData.coating,
+                colour: formData.colour,
+                style: formData.style,
+                length: formData.length,
+                netWeight: formData.netWeight,
+                coreWeight: formData.coreWeight,
+                grossWeight: formData.grossWeight,
+                operator: formData.operator
+            };
+            console.log('Sending print data after save:', printData);
+            ipcRenderer.send('print-label', printData);
+
+            // Clean up form with our improved function
+            cleanupForm();
+        } else {
+            throw new Error(result.message || "Failed to save record");
+        }
+
+        // Re-enable button
+        btn.disabled = false;
+        btn.textContent = 'Save & Print';
+
+        console.log(`DOM updates completed in ${performance.now() - startTime}ms`);
+    } catch (error) {
+        console.error("Error saving record:", error);
+        alert("Error saving record. Please try again.");
+        
+        // Re-enable button on error
+        const btn = document.getElementById('save-print-btn');
+        btn.disabled = false;
+        btn.textContent = 'Save & Print';
+    }
+});
+        ipcRenderer.on('update-weight', (event, data) => {
+            console.log('Received weight data:', data);
+            weightDisplay.textContent = `${data.weight} kg`;
+
+            grossWeightInput.value = parseFloat(data.weight).toFixed(2); // Set net weight first
+            calculateGrossWeight(); // Then calculate correct gross weight
+
+});
+
+        ipcRenderer.on('serial-status', (event, data) => {
+            statusDiv.className = data.connected ? 'connected' : 'disconnected';
+            statusDiv.textContent = data.connected ? 
+                `Connected to ${data.port} (${machineSelect.value})` : 
+                'Disconnected';
+        });
+
+   // Add this to your existing ipcRenderer listeners
+ipcRenderer.on('print-status', (event, status) => {
+    if (!status.success) {
+        const errorDetails = [
+            `Error: ${status.error}`,
+            `Technical Details:`,
+            `- Code: ${status.details?.code || 'N/A'}`,
+            `- System Call: ${status.details?.syscall || 'N/A'}`,
+            `- Path: ${status.details?.path || 'N/A'}`
+        ].join('\n');
+
+        // Show dialog box
+        const shouldRetry = confirm(
+            `Printing Failed!\n\n${errorDetails}\n\nRetry printing?`
+        );
+
+        if (shouldRetry) {
+            ipcRenderer.send('print-label', status.originalData);
+        }
+    }
+});
+        document.getElementById('date').valueAsDate = new Date();
+        updatePortList();
+
+        window.printRecord = printRecord;
+    </script>
+ <script>
+    const colorOptions = [
+        { value: 'transparent', label: 'Transparent' },
+        { value: 'brown', label: 'Brown' },
+        { value: 'milkyWhite', label: 'Milky White' },
+        { value: 'red', label: 'Red' },
+        { value: 'blue', label: 'Blue' },
+        { value: 'black', label: 'Black' },
+        { value: 'green', label: 'Green' },
+        { value: 'yellow', label: 'Yellow' },
+        { value: 'orange', label: 'Orange' },
+        { value: 'purple', label: 'Purple' },
+        { value: 'pink', label: 'Pink' },
+    ];
+
+    const filmMicOptions = Array.from({ length: 60 }, (_, i) => i + 18);
+    const coatingOptions = Array.from({ length: 42 }, (_, i) => i + 9);
+    const styleOptions = ['PLAIN'];
+    const operatorOptions = [
+        'Naseer Khan', 'Idrees Khan', 'Sonu Yadav', 'Babu Bhai', 'Rohit Yadav', 'Mahendra Yadav'
+    ];
+
+    function populateDropdown(dropdown, options) {
+        options.forEach(option => {
+            const opt = document.createElement("option");
+            opt.value = option.value || option;
+            opt.textContent = option.label || option;
+            dropdown.appendChild(opt);
+        });
+    }
+    function populateDatalist(datalistId, options) {
+    const datalist = document.getElementById(datalistId);
+    options.forEach(option => {
+        const opt = document.createElement("option");
+        opt.value = option;
+        datalist.appendChild(opt);
+    });
+}
+
+    populateDropdown(document.getElementById("colour"), colorOptions);
+    populateDropdown(document.getElementById("filmMic"), filmMicOptions);
+    populateDropdown(document.getElementById("coating"), coatingOptions);
+    populateDropdown(document.getElementById("operator"), operatorOptions);
+    populateDatalist("style-options", styleOptions);
+populateDatalist("operator-options", operatorOptions);
+</script>
+<script>
+    async function fetchSharedPrinters() {
+        const printers = await window.electronAPI.getSharedPrinters();
+        const select = document.getElementById("printer-select");
+
+        if (printers.length) {
+            select.innerHTML = `<option value="">Select Shared Printer</option>`;
+            printers.forEach(printer => {
+                select.innerHTML += `<option value="${printer}">${printer}</option>`;
+            });
+        } else {
+            select.innerHTML = `<option value="">No shared printers found</option>`;
+        }
+    }
+
+    document.getElementById("print-btn").addEventListener("click", async () => {
+        const printer = document.getElementById("printer-select").value;
+        if (!printer) {
+            alert("Please select a shared printer");
+            return;
+        }
+
+        alert(`Selected Shared Printer: ${printer}`);
+    });
+
+    fetchSharedPrinters();
+</script>
+
+
+    
+</body>
+</html>

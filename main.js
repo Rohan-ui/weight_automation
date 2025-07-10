@@ -21,9 +21,9 @@ let lastDataTime = Date.now();
 const DATA_TIMEOUT = 10000; // 10 seconds timeout
 // Serial port configuration with backup ports
 const SERIAL_CONFIG = {
-    defaultPath: 'COM5',
+    defaultPath: 'COM3',
     baudRate: 9600,
-    alternativePorts: ['COM3', 'COM4', 'COM6']
+    alternativePorts: [] // Only try COM3
 };
 
 
@@ -105,17 +105,10 @@ async function findAvailablePort() {
     try {
         const ports = await listAvailablePorts();
         const availablePorts = ports.map(port => port.path);
-        
         if (availablePorts.includes(SERIAL_CONFIG.defaultPath)) {
             return SERIAL_CONFIG.defaultPath;
         }
-        
-        for (const port of SERIAL_CONFIG.alternativePorts) {
-            if (availablePorts.includes(port)) {
-                return port;
-            }
-        }
-        
+        // Only try COM3, do not scan alternatives
         return null;
     } catch (err) {
         console.error('Error finding available port:', err);
@@ -133,7 +126,6 @@ async function initSerialPort() {
     
     try {
         const availablePort = await findAvailablePort();
-        
         if (!availablePort) {
             throw new Error('No available serial ports found');
         }
@@ -143,36 +135,38 @@ async function initSerialPort() {
         return new Promise((resolve, reject) => {
             serialPort = new SerialPort({
                 path: availablePort,
-                baudRate: SERIAL_CONFIG.baudRate
-            }, (err) => {
-                isPortBusy = false;
-                
-                if (err) {
-                    handleSerialError('Port initialization failed', err);
-                    reject(err);
-                    return;
-                }
-                
-                console.log(`Serial port ${availablePort} successfully initialized`);
-                notifyRenderer('serial-status', { 
-                    connected: true, 
-                    port: availablePort 
-                });
-                
-                setupParser();
-                resolve();
+                baudRate: SERIAL_CONFIG.baudRate,
+                autoOpen: false // We'll open manually after setting up listeners
             });
 
+            // Set up all event listeners BEFORE opening the port
             serialPort.on('error', (err) => {
                 handleSerialError('Serial port error', err);
             });
 
-            serialPort.on('close', () => {
+            serialPort.on('open', () => {
+                isPortBusy = false;
+                console.log(`Serial port ${availablePort} successfully opened`);
+                notifyRenderer('serial-status', { 
+                    connected: true, 
+                    port: availablePort 
+                });
+                setupParser();
+                lastDataTime = Date.now(); // Reset the data timer
+                resolve();
+            });
+
+            serialPort.on('close', async () => {
                 console.log('Serial port closed');
                 notifyRenderer('serial-status', { connected: false });
+                if (!isPortBusy) {
+                    await handlePortDisconnection();
+                }
             });
-        });
 
+            // Now open the port
+            serialPort.open();
+        });
     } catch (err) {
         isPortBusy = false;
         handleSerialError('Failed to create serial port', err);
@@ -180,51 +174,102 @@ async function initSerialPort() {
     }
 }
 
+async function handlePortDisconnection() {
+    isPortBusy = true;
+    let reconnectAttempts = 0;
+    const maxAttempts = 10;
+    const retryDelay = 1000;
+    
+    const tryReconnect = async () => {
+        reconnectAttempts++;
+        console.log(`[Reconnect Attempt ${reconnectAttempts}] Scanning for COM3...`);
+        try {
+            const port = await findAvailablePort();
+            if (port) {
+                console.log(`[Reconnect Attempt ${reconnectAttempts}] COM3 found, trying to connect...`);
+                await initSerialPort();
+                console.log(`[Reconnect Attempt ${reconnectAttempts}] Reconnected to COM3 successfully.`);
+                isPortBusy = false;
+                // Notify renderer process to trigger any post-reconnect logic
+                if (mainWindow && mainWindow.webContents) {
+                    mainWindow.webContents.send('serial-reconnected');
+                }
+            } else {
+                if (reconnectAttempts < maxAttempts) {
+                    console.log(`[Reconnect Attempt ${reconnectAttempts}] COM3 not found, will retry in ${retryDelay/1000} second.`);
+                    setTimeout(tryReconnect, retryDelay);
+                } else {
+                    console.log(`Max reconnect attempts (${maxAttempts}) reached. Giving up.`);
+                    isPortBusy = false;
+                }
+            }
+        } catch (err) {
+            console.error(`[Reconnect Attempt ${reconnectAttempts}] Reconnect attempt failed:`, err);
+            if (reconnectAttempts < maxAttempts) {
+                setTimeout(tryReconnect, retryDelay);
+            } else {
+                console.log(`Max reconnect attempts (${maxAttempts}) reached. Giving up.`);
+                isPortBusy = false;
+            }
+        }
+    };
+    await tryReconnect();
+}
+
 function setupParser() {
     try {
-        parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+        // Remove old parser and listeners if they exist
+        if (parser) {
+            parser.removeAllListeners();
+            parser.destroy();
+        }
         
+        if (serialPort) {
+            serialPort.removeAllListeners('data');
+        }
+
+        // Create new parser
+        parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+
         parser.on('data', (data) => {
             try {
-                // Update last data received time
                 lastDataTime = Date.now();
+                const rawData = data.toString().trim();
+                console.log('Received weight data:', rawData);
                 
-                const rawData = data.toString();
-                console.log('Raw data buffer:', data);
-                console.log('Raw data string:', rawData);
-                console.log('Raw data hex:', Buffer.from(data).toString('hex'));
-
-                // Clean and parse the data
-                const weight = data.toString().trim();
-                console.log('Parsed weight:', weight);
-                
-                // Only send valid weight data
-                if (mainWindow && weight.length > 0) {
+                if (mainWindow && rawData.length > 0) {
                     notifyRenderer('update-weight', { 
-                        weight, 
+                        weight: rawData, 
                         timestamp: new Date().toISOString(),
                         port: serialPort.path
                     });
                 }
             } catch (err) {
-                handleSerialError('Data parsing error', err);
+                console.error('Error processing weight data:', err);
             }
         });
 
-        // Add raw data event listener
+        // Also listen to raw data as a fallback
         serialPort.on('data', (data) => {
             lastDataTime = Date.now();
-            notifyRenderer('update-weight', { 
-                weight: data.toString(), 
-                timestamp: new Date().toISOString(),
-                port: serialPort.path
-            });
-            console.log('Direct port data:', data.toString());
-            console.log('Direct port hex:', data.toString('hex'));
+            const rawData = data.toString().trim();
+            console.log('Raw port data:', rawData);
+            
+            if (mainWindow && rawData.length > 0) {
+                notifyRenderer('update-weight', { 
+                    weight: rawData, 
+                    timestamp: new Date().toISOString(),
+                    port: serialPort.path
+                });
+            }
         });
 
+        // Handle parser errors
+        parser.on('error', (err) => {
+            console.error('Parser error:', err);
+        });
     } catch (err) {
-        handleSerialError('Parser setup failed', err);
+        console.error('Parser setup failed:', err);
     }
 }
 
@@ -232,17 +277,31 @@ function setupParser() {
 function monitorDataTimeout() {
     setInterval(async () => {
         if (serialPort && serialPort.isOpen && (Date.now() - lastDataTime) > DATA_TIMEOUT) {
-            console.log('No data received for', DATA_TIMEOUT/1000, 'seconds. Attempting to reconnect...');
+            console.log(`No data received for ${DATA_TIMEOUT/1000} seconds. Checking connection...`);
+            
+            // First try sending a simple command to check if the port is responsive
             try {
-                await initSerialPort();
-                lastDataTime = Date.now(); // Reset timer after successful reconnect
+                if (serialPort.isOpen) {
+                    serialPort.write('GET_DATA\n', (err) => {
+                        if (err) {
+                            console.error('Error writing to port:', err);
+                            // If write fails, try reconnecting
+                            initSerialPort().catch(err => {
+                                console.error('Reconnection attempt failed:', err);
+                            });
+                        }
+                    });
+                }
             } catch (err) {
-                console.error('Reconnection attempt failed:', err);
+                console.error('Error checking port responsiveness:', err);
+                // If any error occurs, try reconnecting
+                initSerialPort().catch(err => {
+                    console.error('Reconnection attempt failed:', err);
+                });
             }
         }
     }, 2000); // Check every 2 seconds
 }
-
 // Update app.whenReady to include data timeout monitoring
 
 
@@ -263,24 +322,19 @@ async function closeSerialPort() {
 }
 
 function handleSerialError(context, error) {
-    const errorMessage = `${context}: ${error.message}`;
-    console.error(errorMessage);
-    
-    notifyRenderer('serial-error', {
+    const errorDetails = {
         context,
         message: error.message,
-        timestamp: new Date().toISOString()
-    });
-
-    if (!isPortBusy) {
-        const delay = 5000;
-        console.log(`Will attempt to reconnect in ${delay/1000} seconds...`);
-        setTimeout(() => {
-            initSerialPort().catch(err => {
-                console.error('Reconnection attempt failed:', err);
-            });
-        }, delay);
-    }
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+        portInfo: serialPort ? {
+            path: serialPort.path,
+            isOpen: serialPort.isOpen
+        } : null
+    };
+    
+    console.error('Serial Error:', errorDetails);
+    notifyRenderer('serial-error', errorDetails);
 }
 
 function notifyRenderer(channel, data) {
@@ -289,24 +343,23 @@ function notifyRenderer(channel, data) {
     }
 }
 
-
-
-
 app.whenReady().then(async () => {
     try {
         createWindow();
+        
+        // Initial port check and connection
         await initSerialPort();
         
-        // Check for updates immediately when app starts
+        // Start monitoring for data timeout
+        monitorDataTimeout();
+        
+        // Check for updates
         autoUpdater.checkForUpdatesAndNotify();
         
         // Check for updates every 30 minutes
         setInterval(() => {
             autoUpdater.checkForUpdatesAndNotify();
         }, 30 * 60 * 1000);
-
-        // Check for updates
-        autoUpdater.checkForUpdatesAndNotify();
     } catch (err) {
         console.error('Error during app initialization:', err);
     }
@@ -349,6 +402,13 @@ ipcMain.on('select-port', async (event, portPath) => {
     }
 });
 
+ipcMain.on('refresh-connection', async () => {
+    try {
+        await initSerialPort();
+    } catch (err) {
+        console.error('Manual refresh failed:', err);
+    }
+});
 ipcMain.on('restart-serial', async () => {
     try {
         await initSerialPort();
@@ -420,3 +480,4 @@ autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info);
     notifyRenderer('update-status', 'Update downloaded. Will install on restart.');
 });
+

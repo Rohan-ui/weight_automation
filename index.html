@@ -553,9 +553,10 @@
 
     <div class="table-section">
         <h2>Production Records</h2>
-        <div class="filter-section" style="margin-bottom: 15px;">
+        <div class="filter-section" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
             <label for="date-filter">Filter by Date:</label>
             <input type="date" id="date-filter" name="date-filter">
+            <button id="clear-filter-btn" type="button" style="padding: 6px 14px; border-radius: 4px; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer;">Clear Filter</button>
         </div>
         <table class="data-table">
             <thead>
@@ -691,7 +692,50 @@ let offlineRecords = JSON.parse(localStorage.getItem('offlineRecords')) || [];
         });
 
         refreshPortsBtn.addEventListener('click', updatePortList);
+
+        // Manual restart button
         restartBtn.addEventListener('click', () => ipcRenderer.send('restart-serial'));
+
+        // --- Auto restart logic on disconnect ---
+        let autoRestartInterval = null;
+        let autoRestartAttempts = 0;
+        const MAX_AUTO_ATTEMPTS = 4;
+        const AUTO_RESTART_PERIOD = 30000; // 30 seconds
+        const AUTO_RESTART_DELAY = Math.floor(AUTO_RESTART_PERIOD / MAX_AUTO_ATTEMPTS); // ~7500ms
+
+        function startAutoRestartSerial() {
+            if (autoRestartInterval) return; // Already running
+            autoRestartAttempts = 0;
+            autoRestartInterval = setInterval(() => {
+                autoRestartAttempts++;
+                console.log(`[AutoRestart] Attempt ${autoRestartAttempts} of ${MAX_AUTO_ATTEMPTS}`);
+                ipcRenderer.send('restart-serial');
+                if (autoRestartAttempts >= MAX_AUTO_ATTEMPTS) {
+                    clearInterval(autoRestartInterval);
+                    autoRestartInterval = null;
+                    console.log('[AutoRestart] Stopped after max attempts.');
+                }
+            }, AUTO_RESTART_DELAY);
+        }
+
+        // Listen for disconnect and start auto-restart
+        ipcRenderer.on('serial-status', (event, data) => {
+            statusDiv.className = data.connected ? 'connected' : 'disconnected';
+            statusDiv.textContent = data.connected ? 
+                `Connected to ${data.port} (${machineSelect.value})` : 
+                'Disconnected';
+            if (!data.connected) {
+                startAutoRestartSerial();
+            } else {
+                // If reconnected, stop auto-restart
+                if (autoRestartInterval) {
+                    clearInterval(autoRestartInterval);
+                    autoRestartInterval = null;
+                    autoRestartAttempts = 0;
+                    console.log('[AutoRestart] Cleared on successful reconnect.');
+                }
+            }
+        });
 
         function calculateGrossWeight() {
     const core = parseFloat(coreWeightInput.value) || 0;
@@ -1099,9 +1143,9 @@ ipcRenderer.on('print-status', (event, status) => {
 
     const filmMicOptions = Array.from({ length: 60 }, (_, i) => i + 18);
     const coatingOptions = Array.from({ length: 42 }, (_, i) => i + 9);
-    const styleOptions = ['PLAIN'];
+    const styleOptions = ['PLAIN',"PRINTED"];
     const operatorOptions = [
-        'Naseer Khan', 'Idrees Khan', 'Sonu Yadav', 'Babu Bhai', 'Rohit Yadav', 'Mahendra Yadav'
+        'Naseer Khan', 'Idrees Khan', 'Sonu Yadav', 'Babu Bhai', 'Rohit Yadav', 'Mahendra Yadav','idrees Khan','Sonu Gupta',"Mahendra Yadav","Pappu Yadav","Heer Singh",'alfath Khan'
     ];
 
     function populateDropdown(dropdown, options) {

@@ -420,20 +420,22 @@ ipcMain.on('restart-serial', async () => {
 
 // Add new IPC handler for printing
 ipcMain.on('print-label', async (event, data) => {
+    console.log('Received print-label IPC with data:', data);
     try {
-        // Store original data for potential retry
         const printData = {
             originalData: data,
             timestamp: new Date().toISOString()
         };
-
+        console.log('Calling zplPrinter.print with data:', printData);
         await zplPrinter.print(data);
+        console.log('Print job sent successfully');
         
         event.reply('print-status', { 
             success: true,
             data: printData
         });
     } catch (err) {
+        console.error('Print error:', err);
         const errorMessage = {
             success: false,
             error: err.message,
@@ -442,7 +444,7 @@ ipcMain.on('print-label', async (event, data) => {
                 syscall: err.syscall,
                 path: err.path
             },
-            originalData: data  // Include original data for retry
+            originalData: data
         };
         
         event.reply('print-status', errorMessage);

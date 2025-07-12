@@ -31,53 +31,24 @@ class ZPLPrinter {
         });
     }
 
-     generateZPL(data) {
+ generateZPL(data) {
         console.log('generateZPL called with data:', data);
         
         let zpl = '^XA';
-        // Width: 752 dots (~3.7 inches), Height: 1116 dots (~5.5 inches)
-        zpl += '^PW752^LL1116^LH0,0^CI28';
-        zpl += '^FO0,0^GB752,1116,2^FS';   // Box height matches new label length
-        zpl += '^FO376,0^GB2,1116,2^FS';   // Vertical line height matches new label length
-    
-        // Horizontal lines (11 lines, spaced to fit within 1116 dots)
-        for (let i = 1; i <= 11; i++) {
-            const y = i * 90; // Spacing of 90 dots to distribute 11 gaps across 1116 dots
-            zpl += `^FO0,${y}^GB752,2,2^FS`;
-        }
-    
-        const systemDate = new Date();
-    
-        // Extract date components in dd/mm/yyyy format
-        const day = String(systemDate.getDate()).padStart(2, '0');
-        const month = String(systemDate.getMonth() + 1).padStart(2, '0');
-        const year = systemDate.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
+        // Set label dimensions: 800x800 dots (~3.94 x 3.94 inches at 203 DPI)
+        zpl += '^PW800^LL800^LH0,0^CI28';
         
-        // Extract time components
-        const hours24 = systemDate.getHours();
-        const minutes = String(systemDate.getMinutes()).padStart(2, '0');
-        
-        // Convert to 12-hour format with AM/PM
-        const hours12 = hours24 % 12 || 12;
-        const period = hours24 >= 12 ? 'PM' : 'AM';
-        const formattedTime = `${hours12}:${minutes} ${period}`;
-        
-        // Determine the shift
-        const shift = (hours24 >= 8 && hours24 < 20) ? 'Shift I' : 'Shift II';
-        
-        // Output results
-        console.log('System Date & Time:', systemDate.toString());
-        console.log('Parsed IST Date:', formattedDate);
-        console.log('Formatted IST Time:', formattedTime);
-        console.log('Shift:', shift);
-    
+        // Outer border and vertical divider
+        zpl += '^FO0,0^GB800,800,2^FS'; // Box: 800x800 dots
+        zpl += '^FO400,0^GB2,800,2^FS'; // Vertical divider at center (400 dots)
+
+        // Define 12 fields
         const fields = [
-            { label: 'Date', value: `${formattedDate} ${shift}` },
+            { label: 'Date', value: '' }, // Populated below
             { label: 'Roll No.', value: data.rollNo || '' },
             { label: 'Width', value: data.width ? `${data.width} mm` : '' },
-            { label: 'Film Mic', value: data.filmMic ? `${data.filmMic} microns` : '' },
-            { label: 'Coating', value: data.coating ? `${data.coating} microns` : '' },
+            { label: 'Film Mic', value: data.filmMic ? `${data.filmMic} micron` : '' },
+            { label: 'Coating', value: data.coating ? `${data.coating} micron` : '' },
             { label: 'Colour', value: data.colour || '' },
             { label: 'Style', value: data.style || '' },
             { label: 'Length', value: data.length ? `${data.length} m` : '' },
@@ -86,15 +57,39 @@ class ZPLPrinter {
             { label: 'Gross Weight', value: data.grossWeight ? `${data.grossWeight} kg` : '' },
             { label: 'Operator', value: data.operator || '' }
         ];
-    
-        // Adjust field positions and set font height to 50 dots for readability
+
+        // Calculate date and shift
+        const systemDate = new Date();
+        const day = String(systemDate.getDate()).padStart(2, '0');
+        const month = String(systemDate.getMonth() + 1).padStart(2, '0');
+        const year = systemDate.getFullYear();
+        const formattedDate = `${day}/${month}/${year}`;
+        const hours24 = systemDate.getHours();
+        const minutes = String(systemDate.getMinutes()).padStart(2, '0');
+        const hours12 = hours24 % 12 || 12;
+        const period = hours24 >= 12 ? 'PM' : 'AM';
+        const formattedTime = `${hours12}:${minutes} ${period}`;
+        const shift = (hours24 >= 8 && hours24 < 20) ? 'Shift I' : 'Shift II';
+        fields[0].value = `${formattedDate} ${shift}`;
+
+        // Spacing: 800 dots height / 12 fields = ~66 dots per field
+        const ySpacing = Math.floor(800 / 12); // Approx 66 dots per field
+        const fontSize = 34; // Font size for readability
+        
+        // Draw horizontal lines and text
         fields.forEach((field, index) => {
-            const y = (index * 90) + 20; // Spacing of 90 dots, offset by 20 for padding
-            zpl += `^FO20,${y}^A0N,50,50^FD${field.label}^FS`;  // Left column (labels)
-            zpl += `^FO400,${y}^A0N,50,50^FD${field.value}^FS`; // Right column (values)
+            const y = index * ySpacing; // Position for each field
+            if (index < fields.length - 1) {
+                // Draw horizontal line except for the last field
+                zpl += `^FO0,${y + ySpacing}^GB800,2,2^FS`;
+            }
+            // Left column (labels): Adjust to fit within 400-dot width
+            zpl += `^FO10,${y + 10}^A0N,${fontSize},${fontSize}^FD${field.label}^FS`;
+            // Right column (values): Start at 410 to stay right of divider
+            zpl += `^FO410,${y + 10}^A0N,${fontSize},${fontSize}^FD${field.value}^FS`;
         });
-    
-        zpl += '^XZ\n^FF';
+
+        zpl += '^XZ';
         return zpl;
     }
 

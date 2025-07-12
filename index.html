@@ -202,11 +202,11 @@
     border-radius: 8px;
     overflow: hidden;
 }
-@media print {
-    @page {
-        size: 100mm 100mm; /* 3.94 inches = 100mm */
-        margin: 2mm;
-    }
+/* @media print {
+    /* @page {
+        size: 100mm 100mm;
+        
+    } 
 
     body {
         margin: 0;
@@ -219,7 +219,7 @@
         position: fixed;
         left: 0;
         top: 0;
-        width: 96mm; /* Accounting for margins */
+        width: 96mm; /* Accounting for margins
         height: 96mm;
     }
 
@@ -255,11 +255,11 @@
         border-bottom: 3px solid black;
     }
 
-    /* Hide everything else when printing */
+    /* Hide everything else when printing 
     .controls, .form-section, .table-section {
         display: none !important;
     }
-}
+} */
 
 /* Regular display preview styling */
 .print-container {
@@ -328,7 +328,7 @@
     }
 
     /* Regular display styling */
-    .print-table {
+    /* .print-table {
         width: 100%;
         border-collapse: collapse;
         border: 2px solid black;
@@ -356,7 +356,7 @@
         border-bottom: none;
     }
 
-    /* Regular display styling */
+    /* Regular display styling 
     .print-table {
         width: 100%;
         border-collapse: collapse;
@@ -384,7 +384,7 @@
         border-bottom: none;
     }
 
-    /* Regular display styling */
+    /* Regular display styling 
     .print-table {
         width: 100%;
         border-collapse: collapse;
@@ -405,7 +405,7 @@
         border: none;
     }
 
-    /* Regular display styling */
+    /* Regular display styling 
     .print-table {
         width: 100%;
         border-collapse: collapse;
@@ -417,7 +417,7 @@
         padding: 15px;
         font-weight: bold;
         font-size: 18px;
-    }
+    } */
 
     </style>
 </head>
@@ -820,7 +820,8 @@ function generatePrintLayout(record) {
         cell.textContent = values[index] || '';
     });
 
-    printContainer.style.display = 'block';
+    // Only show for preview, not for actual printing
+    // printContainer.style.display = 'block'; // Comment out or remove
     return printContainer;
 }
 // function updateDataTable() {
@@ -863,8 +864,7 @@ function deleteRecord(index) {
 }
 function printRecord(index) {
     const record = savedRecords[index];
-    // Send print command directly to main process
-    ipcRenderer.send('print-label', record);
+    ipcRenderer.send('print-label', record); // Send to main process for ZPL printing
 }
 
         coreWeightInput.addEventListener('input', calculateGrossWeight);
